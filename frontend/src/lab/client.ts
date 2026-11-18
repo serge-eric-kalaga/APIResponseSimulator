@@ -63,7 +63,14 @@ export type Proof = {
     outcome: string;
   }[];
 };
-export type Destination = { id: string; label: string; projects: string[] };
+export type Destination = {
+  id: string;
+  label: string;
+  url: string;
+  status: string;
+  environmentId?: string;
+  projects: string[];
+};
 export type Workspace = {
   user: { name: string; projects: string[] };
   environments: {
@@ -77,6 +84,13 @@ export type Workspace = {
   runs: Run[];
   runCounts: { project: string; total: number }[];
   destinations: Destination[];
+  receiverReview: {
+    id: string;
+    url: string;
+    status: string;
+    environmentName: string;
+    project: string;
+  }[];
   health: {
     waiting: number;
     delivered: number;

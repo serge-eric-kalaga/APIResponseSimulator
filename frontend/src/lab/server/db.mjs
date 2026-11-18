@@ -22,6 +22,9 @@ export function openDatabase(
     END;
     INSERT OR IGNORE INTO environments(id,project,name,primary_env) SELECT lower(hex(randomblob(16))),p.name,'Recette',1 FROM projects p WHERE NOT EXISTS (SELECT 1 FROM environments e WHERE e.project=p.name AND e.primary_env=1);
     CREATE TABLE IF NOT EXISTS sharing(kind TEXT NOT NULL, resource TEXT NOT NULL, recipient TEXT NOT NULL, PRIMARY KEY(kind,resource,recipient));
+    CREATE TABLE IF NOT EXISTS operators(login TEXT PRIMARY KEY REFERENCES accounts(name));
+    CREATE TABLE IF NOT EXISTS receivers(id TEXT PRIMARY KEY, environment TEXT NOT NULL REFERENCES environments(id), url TEXT NOT NULL,
+      status TEXT NOT NULL, ip TEXT, UNIQUE(environment,url));
     CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY, login TEXT REFERENCES accounts(name), expires INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS sims(id TEXT PRIMARY KEY, project TEXT REFERENCES projects(name), draft TEXT NOT NULL,
       active INTEGER NOT NULL DEFAULT 0, archived INTEGER NOT NULL DEFAULT 0, updated INTEGER NOT NULL, revision INTEGER NOT NULL DEFAULT 1);

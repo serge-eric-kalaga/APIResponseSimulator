@@ -45,7 +45,7 @@ export const draftSchema = z.object({
   headers: z.string().max(4096),
   variables: z.array(variable).max(40),
   webhook: z.boolean(),
-  destination: z.string().max(120),
+  destination: z.string().max(2048),
   delay: z.number(),
   hookBody: z.string().max(32768),
   hookHeaders: z.string().max(4096),

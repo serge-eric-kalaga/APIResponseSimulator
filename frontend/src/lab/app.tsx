@@ -433,7 +433,7 @@ export function LabApp() {
               />
             )
           ) : view === "health" ? (
-            <Health ws={ws} />
+            <Health ws={ws} refresh={refresh} />
           ) : (
             <Library
               ws={ws}

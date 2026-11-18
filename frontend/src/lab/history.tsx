@@ -309,7 +309,39 @@ export function RunDetail({
     </>
   );
 }
-export function Health({ ws }: { ws: import("./client").Workspace }) {
+export function Health({
+  ws,
+  refresh,
+}: {
+  ws: import("./client").Workspace;
+  refresh: () => Promise<void>;
+}) {
+  const [error, setError] = useState(""),
+    [busy, setBusy] = useState(false);
+  async function review(id: string, action: string, url: string) {
+    if (
+      action === "approve" &&
+      !window.confirm(
+        "Confirmez que cette URL appartient à un service de recette autorisé : " +
+          url,
+      )
+    )
+      return;
+    setBusy(true);
+    setError("");
+    try {
+      await api("receivers/" + id, { action });
+      await refresh();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  const activeDestinations = ws.destinations.filter(
+    (d) => d.status === "active",
+  );
+
   const h = ws.health,
     total = (h.delivered || 0) + (h.failed || 0);
   return (
@@ -360,10 +392,53 @@ export function Health({ ws }: { ws: import("./client").Workspace }) {
           </dd>
         </dl>
       </section>
+      {ws.receiverReview.length > 0 && (
+        <section className="panel block">
+          <h2>Autorisations des URL de réception</h2>
+          {error && (
+            <p role="alert" className="error">
+              {error}
+            </p>
+          )}
+          {ws.receiverReview.map((r) => (
+            <div key={r.id} className="envRow">
+              <div>
+                <strong className="wrap">{r.url}</strong>
+                <small>
+                  {r.project} · {r.environmentName} ·{" "}
+                  {r.status === "pending"
+                    ? "En attente"
+                    : r.status === "active"
+                      ? "Autorisée"
+                      : "Révoquée"}
+                </small>
+              </div>
+              {r.status !== "active" && (
+                <button
+                  className="btn small"
+                  disabled={busy}
+                  onClick={() => review(r.id, "approve", r.url)}
+                >
+                  Autoriser
+                </button>
+              )}
+              {r.status !== "revoked" && (
+                <button
+                  className="textBtn"
+                  disabled={busy}
+                  onClick={() => review(r.id, "revoke", r.url)}
+                >
+                  Retirer
+                </button>
+              )}
+            </div>
+          ))}
+        </section>
+      )}
       <section className="panel block">
         <h2>Destinations autorisées</h2>
-        {ws.destinations.length ? (
-          ws.destinations.map((d) => (
+        {activeDestinations.length ? (
+          activeDestinations.map((d) => (
             <div key={d.id} className="dest">
               <span className="routeIcon">
                 <Webhook size={16} />

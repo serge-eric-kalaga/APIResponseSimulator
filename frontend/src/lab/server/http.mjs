@@ -21,6 +21,11 @@ import {
   environments,
   sharing,
 } from "./workspaces.mjs";
+import {
+  registerReceiver,
+  receiverList,
+  reviewReceiver,
+} from "./receivers.mjs";
 import { cancel, replayDelivery } from "./outbox.mjs";
 
 export async function readBody(req, max = 65536) {
@@ -180,6 +185,11 @@ export async function administration(req, parts, db) {
       db.prepare("DELETE FROM sessions WHERE token=?").run(hash(cookie));
       return json({ ok: true }, 200, { "set-cookie": cookieValue("", 0) });
     }
+    if (resource === "receivers" && write) {
+      if (!id) return json(registerReceiver(db, user, payload), 201);
+      await reviewReceiver(db, user, id, payload.action);
+      return json({ ok: true });
+    }
     if (resource === "projects" && write)
       return json(newProject(db, user, payload.name), 201);
     if (resource === "environments" && write)
@@ -197,8 +207,19 @@ export async function administration(req, parts, db) {
             return false;
           }
         });
-        return projects.length ? [{ id: d.id, label: d.label, projects }] : [];
+        return projects.length
+          ? [
+              {
+                id: d.id,
+                label: d.label,
+                url: d.url,
+                status: "active",
+                projects,
+              },
+            ]
+          : [];
       });
+      const receivers = receiverList(db, user);
       return json({
         user,
         environments: environments(db, user),
@@ -210,7 +231,8 @@ export async function administration(req, parts, db) {
           JOIN grants g ON g.project=s.project WHERE g.login=? GROUP BY s.project`,
           )
           .all(user.name),
-        destinations: allowed,
+        destinations: [...allowed, ...receivers.own],
+        receiverReview: receivers.review,
         health: technical(db, user),
       });
     }

@@ -3,6 +3,7 @@ import http from "node:http";
 import https from "node:https";
 import { Problem, transaction } from "./db.mjs";
 import { execution } from "./scenarios.mjs";
+import { entriesFor } from "./receivers.mjs";
 import { target } from "./targets.mjs";
 const MAX_TRIES = 3,
   LEASE_MS = 30000;
@@ -11,7 +12,7 @@ export function claim(db, now = Date.now()) {
   return transaction(db, () => {
     const row = db
       .prepare(
-        `SELECT j.*,s.project,coalesce(rp.after_attempt,0) offset FROM jobs j LEFT JOIN replays rp ON rp.job=j.id JOIN runs r ON r.id=j.run JOIN sims s ON s.id=r.sim
+        `SELECT j.*,s.project,json_extract(v.config,'$.environment') env,coalesce(rp.after_attempt,0) offset FROM jobs j LEFT JOIN replays rp ON rp.job=j.id JOIN runs r ON r.id=j.run JOIN sims s ON s.id=r.sim JOIN versions v ON v.sim=r.sim AND v.number=r.version
       WHERE (j.state IN ('pending','retry') AND j.due<=?) OR (j.state='sending' AND j.until<=?) ORDER BY j.due LIMIT 1`,
       )
       .get(now, now);
@@ -152,7 +153,12 @@ export async function deliverOne(
     reason,
     temporary = false;
   try {
-    const entry = target(job.dest, job.project, job.url, entries);
+    const entry = target(
+      job.dest,
+      job.project,
+      job.url,
+      entries ?? entriesFor(db, job.project, job.env),
+    );
     code = await transport(job, entry);
     temporary = [408, 425, 429].includes(code) || code >= 500;
     reason =

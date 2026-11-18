@@ -132,15 +132,47 @@ export function Editor({
       setIssue({ field: k, message: (e as Error).message });
     }
   }
+  const envId =
+    d.environment ||
+    ws.environments.find((e) => e.project === d.project && e.primary_env)?.id;
+  const receivers = ws.destinations.filter(
+    (x) =>
+      x.projects.includes(d.project) &&
+      (!x.environmentId || x.environmentId === envId),
+  );
+  const selectedReceiver = receivers.find((x) => x.id === d.destination);
+  async function registerUrl() {
+    if (selectedReceiver) return selectedReceiver;
+    const r = await api<{ id: string; status: string }>("receivers", {
+      url: d.destination,
+      project: d.project,
+      environment: envId,
+    });
+    await refresh();
+    edit("destination", r.id);
+    return r;
+  }
   async function persist(publish: boolean) {
     setBusy(true);
     try {
       if (publish && validation) throw validation;
+      let draft = d;
+      if (publish && d.webhook) {
+        const r = await registerUrl();
+        if (r.status !== "active")
+          throw new FieldError(
+            "destination",
+            r.status === "pending"
+              ? "Cette URL attend l’autorisation du pilote. Vous pouvez enregistrer le brouillon."
+              : "L’autorisation de cette URL a été retirée.",
+          );
+        draft = { ...d, destination: r.id };
+      }
       const s = await api<Item>(
         item
           ? "scenarios/" + item.id + "/" + (publish ? "publish" : "save")
           : "scenarios",
-        { draft: d, revision, publish },
+        { draft, revision, publish },
       );
       setDirty(false);
       setRevision(s.revision);
@@ -439,14 +471,66 @@ export function Editor({
             </label>
             {d.webhook && (
               <>
-                <Field label="Destination autorisée" error={err("destination")}>
+                <Field label="URL de réception" error={err("destination")}>
+                  <input
+                    type="url"
+                    placeholder="https://recette.exemple.fr/webhooks"
+                    value={selectedReceiver?.url || d.destination}
+                    onChange={(e) =>
+                      edit(
+                        "destination",
+                        receivers.find((r) => r.url === e.target.value)?.id ||
+                          e.target.value,
+                      )
+                    }
+                  />
+                </Field>
+                {selectedReceiver ? (
+                  <p className="receiverState">
+                    {selectedReceiver.status === "active"
+                      ? "URL autorisée"
+                      : selectedReceiver.status === "pending"
+                        ? "Autorisation en attente"
+                        : "Autorisation retirée"}
+                  </p>
+                ) : (
+                  <button
+                    className="btn small"
+                    disabled={!d.destination || busy}
+                    onClick={async () => {
+                      setBusy(true);
+                      try {
+                        const r = await registerUrl();
+                        notify(
+                          r.status === "active"
+                            ? "URL autorisée."
+                            : "URL enregistrée. Validation disponible dans Notifications pour l’administrateur.",
+                        );
+                      } catch (e) {
+                        setIssue({
+                          field: "destination",
+                          message: (e as Error).message,
+                        });
+                      } finally {
+                        setBusy(false);
+                      }
+                    }}
+                  >
+                    Enregistrer l’URL
+                  </button>
+                )}
+                <Field label="Destination autorisée">
                   <select
-                    value={d.destination}
+                    value={
+                      selectedReceiver?.status === "active"
+                        ? selectedReceiver.id
+                        : ""
+                    }
                     onChange={(e) => edit("destination", e.target.value)}
                   >
                     <option value="">Sélectionner une destination</option>
-                    {ws.destinations
-                      .filter((x) => x.projects.includes(d.project))
+                    {receivers
+                      .filter((x) => x.status === "active")
                       .map((x) => (
                         <option key={x.id} value={x.id}>
                           {x.label}

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { draftSchema, compile, FieldError } from "../model.ts";
 import { granted, hash } from "./access.mjs";
 import { limit, Problem, transaction } from "./db.mjs";
+import { entriesFor } from "./receivers.mjs";
 import { target } from "./targets.mjs";
 import { environmentFor } from "./workspaces.mjs";
 import { traceFilter, headerTrace } from "./traces.mjs";
@@ -61,7 +62,12 @@ export function save(db, user, input, id, revision, publish = false, entries) {
     compile(draft);
     if (draft.webhook) {
       try {
-        target(draft.destination, draft.project, null, entries);
+        target(
+          draft.destination,
+          draft.project,
+          null,
+          entries ?? entriesFor(db, draft.project, draft.environment),
+        );
       } catch (error) {
         if (error instanceof Problem)
           throw new FieldError("destination", error.message);
@@ -164,7 +170,12 @@ export function trigger(
     };
     let notification;
     if (result.hook) {
-      const dest = target(d.destination, row.project, null, entries);
+      const dest = target(
+        d.destination,
+        row.project,
+        null,
+        entries ?? entriesFor(db, row.project, d.environment),
+      );
       const { n } = db
         .prepare(
           "SELECT COUNT(*) n FROM jobs WHERE state IN ('pending','sending','retry')",

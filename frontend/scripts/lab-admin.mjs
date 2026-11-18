@@ -54,6 +54,7 @@ try {
         },
       ]);
     const user = { name: "Pilote", projects: ["Atlas", "Studio"] };
+    db.prepare("INSERT OR IGNORE INTO operators VALUES(?)").run(user.name);
     const entries = JSON.parse(readFileSync(config, "utf8"));
     db.exec("CREATE TABLE IF NOT EXISTS pilot_fixtures(name TEXT PRIMARY KEY)");
     for (const d of referenceScenarios())
