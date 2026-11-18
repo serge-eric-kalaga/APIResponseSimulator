@@ -12,6 +12,7 @@ export function openDatabase(
     PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;
     CREATE TABLE IF NOT EXISTS projects(name TEXT PRIMARY KEY, key_hash TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS accounts(name TEXT PRIMARY KEY, key_hash TEXT UNIQUE NOT NULL);
+    CREATE TABLE IF NOT EXISTS passwords(login TEXT PRIMARY KEY REFERENCES accounts(name), email TEXT UNIQUE NOT NULL, salt TEXT NOT NULL, verifier TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS grants(login TEXT REFERENCES accounts(name), project TEXT REFERENCES projects(name),
       PRIMARY KEY(login,project));
     CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY, login TEXT REFERENCES accounts(name), expires INTEGER NOT NULL);

@@ -55,8 +55,11 @@ try {
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(url);
-  await page.getByLabel("Clé d’accès personnelle").fill(key);
-  await page.getByRole("button", { name: "Ouvrir la console" }).click();
+  await page.getByRole("button", { name: "J’ai une ancienne clé" }).click();
+  await page.getByLabel("Ancienne clé d’accès").fill(key);
+  await page.getByLabel("Adresse e-mail").fill("pilote@example.test");
+  await page.getByLabel("Mot de passe").fill("mot-de-passe-de-recette");
+  await page.getByRole("button", { name: "Associer mon compte" }).click();
   await expect(
     page.getByRole("heading", { name: "Bibliothèque" }),
   ).toBeVisible();
@@ -182,7 +185,7 @@ try {
   await expect(page.locator("body")).toHaveJSProperty("scrollWidth", 375);
   await page.getByLabel("Ouvrir le menu").click();
   await page.getByRole("button", { name: "Se déconnecter" }).click();
-  await expect(page.getByLabel("Clé d’accès personnelle")).toBeVisible();
+  await expect(page.getByLabel("Adresse e-mail")).toBeVisible();
   if (errors.length) throw Error(errors.join("\n"));
   console.log(
     "Recette navigateur réussie : bibliothèque, filtres, brouillon, publication, exécution, preuves, archive et mobile.",

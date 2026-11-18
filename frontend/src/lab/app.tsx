@@ -35,6 +35,9 @@ function Brand() {
   );
 }
 function Login({ onLogin }: { onLogin: () => Promise<void> }) {
+  const [mode, setMode] = useState<"login" | "register" | "migrate">("login");
+  const [email, setEmail] = useState(""),
+    [password, setPassword] = useState("");
   const [key, setKey] = useState(""),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
@@ -47,7 +50,11 @@ function Login({ onLogin }: { onLogin: () => Promise<void> }) {
             e.preventDefault();
             setBusy(true);
             try {
-              await api("login", { key });
+              await api(mode, {
+                email,
+                password,
+                ...(mode === "migrate" ? { key } : {}),
+              });
               await onLogin();
             } catch (e) {
               setError((e as Error).message);
@@ -60,37 +67,92 @@ function Login({ onLogin }: { onLogin: () => Promise<void> }) {
             <span className="tinyLine" /> BANC DE TEST API
           </div>
           <h1>
-            Ouvrir votre
-            <br />
-            espace de test.
+            {mode === "register"
+              ? "Créer un compte"
+              : mode === "migrate"
+                ? "Récupérer mon compte"
+                : "Ouvrir votre espace de test."}
           </h1>
           <p>
-            Accédez à vos simulations HTTP, à leurs versions et aux traces de
-            vos appels.
+            {mode === "migrate"
+              ? "Associez votre ancienne clé à une adresse e-mail pour retrouver vos projets."
+              : "Retrouvez vos projets et vos simulations HTTP dans votre espace."}
           </p>
           <label className="field">
-            <span>Clé d’accès personnelle</span>
+            <span>Adresse e-mail</span>
             <input
-              autoComplete="current-password"
+              type="email"
+              autoComplete="username"
               required
-              type="password"
-              value={key}
-              onChange={(e) => setKey(e.target.value)}
-              placeholder="Saisissez votre clé d’accès"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
             />
           </label>
+          <label className="field">
+            <span>Mot de passe</span>
+            <input
+              type="password"
+              autoComplete={
+                mode === "login" ? "current-password" : "new-password"
+              }
+              required
+              minLength={mode === "login" ? 1 : 10}
+              maxLength={256}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            {mode !== "login" && <small>10 caractères minimum.</small>}
+          </label>
+          {mode === "migrate" && (
+            <label className="field">
+              <span>Ancienne clé d’accès</span>
+              <input
+                type="password"
+                required
+                value={key}
+                onChange={(e) => setKey(e.target.value)}
+              />
+            </label>
+          )}
           {error && (
             <p className="error" role="alert">
               {error}
             </p>
           )}
           <button disabled={busy} className="btn primary">
-            {busy ? "Connexion…" : "Ouvrir la console"}
+            {busy
+              ? "Un instant…"
+              : mode === "register"
+                ? "Créer mon compte"
+                : mode === "migrate"
+                  ? "Associer mon compte"
+                  : "Se connecter"}
             <ArrowRight size={17} />
           </button>
-          <small>
-            La clé est fournie par l’administrateur de votre environnement.
-          </small>
+          <div className="actions">
+            {(["login", "register", "migrate"] as const)
+              .filter((m) => m !== mode)
+              .map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  disabled={busy}
+                  className="textBtn"
+                  onClick={() => {
+                    setMode(m);
+                    setError("");
+                    setKey("");
+                    setPassword("");
+                  }}
+                >
+                  {m === "login"
+                    ? "Se connecter"
+                    : m === "register"
+                      ? "Créer un compte"
+                      : "J’ai une ancienne clé"}
+                </button>
+              ))}
+          </div>
         </form>
         <div className="gateFoot">
           <CircleDot size={14} /> Environnement de recette
@@ -275,6 +337,10 @@ export function LabApp() {
                   await api("logout", {});
                   setMode("login");
                   setWs(null);
+                  setProject("");
+                  setMobile(false);
+                  notify("");
+                  navigate("#/library");
                 } catch (e) {
                   notify((e as Error).message);
                 }

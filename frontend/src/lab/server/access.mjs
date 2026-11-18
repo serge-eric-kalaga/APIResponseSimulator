@@ -20,13 +20,18 @@ export function createAccount(db, login, projects) {
 }
 export function signIn(db, token) {
   const account = db
-    .prepare("SELECT name FROM accounts WHERE key_hash=?")
+    .prepare(
+      "SELECT name FROM accounts WHERE key_hash=? AND NOT EXISTS (SELECT 1 FROM passwords WHERE login=accounts.name)",
+    )
     .get(hash(token));
   if (!account) throw new Problem(401, "Clé d’accès invalide.");
+  return openSession(db, account.name);
+}
+export function openSession(db, login) {
   const session = key();
   db.prepare("INSERT INTO sessions VALUES(?,?,?)").run(
     hash(session),
-    account.name,
+    login,
     Date.now() + 8 * 3600000,
   );
   return session;

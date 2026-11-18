@@ -1,6 +1,7 @@
 import { ZodError } from "zod";
 import { FieldError } from "../model.ts";
 import { database, Problem, limit } from "./db.mjs";
+import { enroll, passwordLogin } from "./passwords.mjs";
 import { identity, signIn, hash } from "./access.mjs";
 import { destinations, target } from "./targets.mjs";
 import {
@@ -155,9 +156,14 @@ export async function administration(req, parts, db) {
         ?.match(/(?:^|;\s*)relais_session=([\w-]+)/)?.[1] || "";
     const cookieValue = (val, age) =>
       `relais_session=${val}; HttpOnly; Path=/; SameSite=Strict; Max-Age=${age}${new URL(origin).protocol === "https:" ? "; Secure" : ""}`;
-    if (resource === "login" && write) {
+    if (["login", "register", "migrate"].includes(resource) && write) {
       limit(db, "login", 90);
-      const session = signIn(db, String(payload.key || ""));
+      const session =
+        resource === "login"
+          ? payload.email !== undefined
+            ? await passwordLogin(db, payload)
+            : signIn(db, String(payload.key || ""))
+          : await enroll(db, payload, resource === "migrate");
       return json({ ok: true }, 200, {
         "set-cookie": cookieValue(session, 28800),
       });
