@@ -3,6 +3,7 @@ import { draftSchema, compile, FieldError } from "../model.ts";
 import { granted, hash } from "./access.mjs";
 import { limit, Problem, transaction } from "./db.mjs";
 import { target } from "./targets.mjs";
+import { environmentFor } from "./workspaces.mjs";
 import { traceFilter, headerTrace } from "./traces.mjs";
 
 function dehydrate(row) {
@@ -14,17 +15,48 @@ export function scenario(db, user, id) {
   granted(user, row.project);
   return row;
 }
-export function library(db, user) {
+// All discovery and read-by-ID queries use the same visibility predicate.
+export function library(db, user, id = null) {
   return db
     .prepare(
-      "SELECT sims.*,CASE WHEN archived=0 THEN json_extract(v.config,'$.path') END activePath FROM sims LEFT JOIN versions v ON v.sim=sims.id AND v.number=sims.active JOIN grants ON sims.project=grants.project WHERE login=? ORDER BY updated DESC,sims.rowid DESC",
+      `SELECT s.id,s.project,s.revision,s.archived,s.active,s.updated,e.id environment,e.name environmentName,
+    g.login IS NOT NULL writable,
+    CASE WHEN g.login IS NULL AND v.config IS NOT NULL THEN v.config ELSE s.draft END draft,
+    CASE WHEN s.archived=0 THEN json_extract(v.config,'$.path') END activePath
+    FROM sims s JOIN environments e ON e.project=s.project AND
+    (e.id=json_extract(s.draft,'$.environment') OR (json_extract(s.draft,'$.environment') IS NULL AND e.primary_env=1))
+    LEFT JOIN versions v ON v.sim=s.id AND v.number=s.active
+    LEFT JOIN grants g ON g.project=s.project AND g.login=:login
+    WHERE (:id IS NULL OR s.id=:id) AND (g.login IS NOT NULL OR EXISTS(SELECT 1 FROM sharing h
+      WHERE h.recipient IN (:login,'*') AND ((h.kind='simulation' AND h.resource=s.id) OR (h.kind='environment' AND h.resource=e.id))))
+    ORDER BY s.updated DESC,s.rowid DESC`,
     )
-    .all(user.name)
+    .all({ login: user.name, id })
     .map(dehydrate);
+}
+export function duplicate(db, user, id, project, environment) {
+  const source = library(db, user, id)[0];
+  if (!source) throw new Problem(404, "Simulation introuvable.");
+  const dest = project || (source.writable ? source.project : user.projects[0]);
+  if (!dest)
+    throw new Problem(422, "Créez un projet pour y dupliquer la simulation.");
+  const draft = {
+    ...source.draft,
+    name: source.draft.name.slice(0, 150) + " · copie",
+    project: dest,
+    environment:
+      environment || (dest === source.project ? source.environment : undefined),
+  };
+  if (dest !== source.project) {
+    draft.destination = "";
+    draft.webhook = false;
+  }
+  return save(db, user, draft);
 }
 export function save(db, user, input, id, revision, publish = false, entries) {
   const draft = draftSchema.parse(input);
   granted(user, draft.project);
+  draft.environment = environmentFor(db, draft.project, draft.environment);
   if (publish) {
     compile(draft);
     if (draft.webhook) {
@@ -43,7 +75,10 @@ export function save(db, user, input, id, revision, publish = false, entries) {
       throw new Problem(409, "Cette simulation est archivée.");
     if (
       previous &&
-      (previous.revision !== revision || previous.project !== draft.project)
+      (previous.revision !== revision ||
+        previous.project !== draft.project ||
+        environmentFor(db, previous.project, previous.draft.environment) !==
+          draft.environment)
     )
       throw new Problem(
         409,

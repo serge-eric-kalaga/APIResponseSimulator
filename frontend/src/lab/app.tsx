@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { navigate, api, RequestError } from "./client";
 import type { Workspace } from "./client";
+import { Projects, Sharing } from "./projects";
 import { Library } from "./library";
 import { Editor } from "./editor";
 import { Health, History, RunDetail } from "./history";
@@ -199,6 +200,7 @@ function Login({ onLogin }: { onLogin: () => Promise<void> }) {
   );
 }
 const links = [
+  { id: "projects", name: "Projets et environnements", icon: Folder },
   { id: "library", name: "Bibliothèque", icon: LibraryBig },
   { id: "runs", name: "Exécutions", icon: Activity },
   { id: "health", name: "Notifications", icon: Webhook },
@@ -265,8 +267,9 @@ export function LabApp() {
         )}
       </main>
     );
-  const [, view, id] = route.split("/"),
+  const [, view, id, resourceId] = route.split("/"),
     group = ["new", "editor"].includes(view) ? "library" : view;
+  const selectedEnv = ws.environments.find((e) => e.id === id);
   const item = ws.items.find((i) => i.id === id),
     activeLink = links.find((l) => l.id === group);
   return (
@@ -392,13 +395,29 @@ export function LabApp() {
               {failure}
             </p>
           )}
-          {view === "new" || view === "editor" ? (
+          {view === "projects" ||
+          (view === "new" && !ws.user.projects.length) ? (
+            <Projects ws={ws} refresh={refresh} notify={notify} />
+          ) : view === "sharing" ? (
+            <Sharing
+              key={route}
+              kind={id}
+              id={resourceId}
+              refresh={refresh}
+              notify={notify}
+            />
+          ) : view === "environment" && !selectedEnv ? (
+            <p>Environnement introuvable ou accès retiré.</p>
+          ) : view === "new" || view === "editor" ? (
             view === "editor" && !item ? (
               <p>Simulation introuvable.</p>
             ) : (
               <Editor
                 key={id || "new"}
                 item={item}
+                initialEnvironment={
+                  view === "new" ? selectedEnv?.id : undefined
+                }
                 ws={ws}
                 project={project}
                 refresh={refresh}
@@ -420,7 +439,8 @@ export function LabApp() {
               ws={ws}
               refresh={refresh}
               notify={notify}
-              project={project}
+              project={view === "environment" ? selectedEnv!.project : project}
+              environment={view === "environment" ? selectedEnv : undefined}
             />
           )}
         </main>

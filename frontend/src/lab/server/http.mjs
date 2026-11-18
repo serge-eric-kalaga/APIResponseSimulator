@@ -6,6 +6,7 @@ import { identity, signIn, hash } from "./access.mjs";
 import { destinations, target } from "./targets.mjs";
 import {
   activeConfig,
+  duplicate,
   archive,
   execution,
   library,
@@ -14,6 +15,12 @@ import {
   scenario,
   trigger,
 } from "./scenarios.mjs";
+import {
+  newProject,
+  newEnvironment,
+  environments,
+  sharing,
+} from "./workspaces.mjs";
 import { cancel, replayDelivery } from "./outbox.mjs";
 
 export async function readBody(req, max = 65536) {
@@ -173,6 +180,12 @@ export async function administration(req, parts, db) {
       db.prepare("DELETE FROM sessions WHERE token=?").run(hash(cookie));
       return json({ ok: true }, 200, { "set-cookie": cookieValue("", 0) });
     }
+    if (resource === "projects" && write)
+      return json(newProject(db, user, payload.name), 201);
+    if (resource === "environments" && write)
+      return json(newEnvironment(db, user, payload.project, payload.name), 201);
+    if (resource === "sharing" && action)
+      return json(sharing(db, user, id, action, write ? payload : null));
     if (resource === "workspace" && !write) {
       const items = library(db, user);
       const allowed = destinations().flatMap((d) => {
@@ -188,6 +201,7 @@ export async function administration(req, parts, db) {
       });
       return json({
         user,
+        environments: environments(db, user),
         items,
         runs: runs(db, user),
         runCounts: db
@@ -212,14 +226,11 @@ export async function administration(req, parts, db) {
             action === "publish" || (!id && payload.publish === true),
           ),
         );
-      const s = scenario(db, user, id);
       if (action === "duplicate")
         return json(
-          save(db, user, {
-            ...s.draft,
-            name: s.draft.name.slice(0, 150) + " · copie",
-          }),
+          duplicate(db, user, id, payload.project, payload.environment),
         );
+      scenario(db, user, id);
       if (action === "archive") {
         archive(db, user, id);
         return json({ ok: true });

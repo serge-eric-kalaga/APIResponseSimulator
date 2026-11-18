@@ -6,6 +6,9 @@ export type Item = {
   active: number;
   activePath: string | null;
   archived: number;
+  environment: string;
+  environmentName: string;
+  writable: number;
   updated: number;
   revision: number;
 };
@@ -63,6 +66,13 @@ export type Proof = {
 export type Destination = { id: string; label: string; projects: string[] };
 export type Workspace = {
   user: { name: string; projects: string[] };
+  environments: {
+    id: string;
+    project: string;
+    name: string;
+    writable: number;
+    primary_env: number;
+  }[];
   items: Item[];
   runs: Run[];
   runCounts: { project: string; total: number }[];

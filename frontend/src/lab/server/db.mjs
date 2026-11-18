@@ -15,6 +15,13 @@ export function openDatabase(
     CREATE TABLE IF NOT EXISTS passwords(login TEXT PRIMARY KEY REFERENCES accounts(name), email TEXT UNIQUE NOT NULL, salt TEXT NOT NULL, verifier TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS grants(login TEXT REFERENCES accounts(name), project TEXT REFERENCES projects(name),
       PRIMARY KEY(login,project));
+    CREATE TABLE IF NOT EXISTS environments(id TEXT PRIMARY KEY, project TEXT NOT NULL REFERENCES projects(name), name TEXT NOT NULL COLLATE NOCASE, primary_env INTEGER NOT NULL DEFAULT 0, UNIQUE(project,name));
+    CREATE UNIQUE INDEX IF NOT EXISTS primary_environment ON environments(project) WHERE primary_env=1;
+    CREATE TRIGGER IF NOT EXISTS project_environment AFTER INSERT ON projects BEGIN
+      INSERT INTO environments VALUES(lower(hex(randomblob(16))),NEW.name,'Recette',1);
+    END;
+    INSERT OR IGNORE INTO environments(id,project,name,primary_env) SELECT lower(hex(randomblob(16))),p.name,'Recette',1 FROM projects p WHERE NOT EXISTS (SELECT 1 FROM environments e WHERE e.project=p.name AND e.primary_env=1);
+    CREATE TABLE IF NOT EXISTS sharing(kind TEXT NOT NULL, resource TEXT NOT NULL, recipient TEXT NOT NULL, PRIMARY KEY(kind,resource,recipient));
     CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY, login TEXT REFERENCES accounts(name), expires INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS sims(id TEXT PRIMARY KEY, project TEXT REFERENCES projects(name), draft TEXT NOT NULL,
       active INTEGER NOT NULL DEFAULT 0, archived INTEGER NOT NULL DEFAULT 0, updated INTEGER NOT NULL, revision INTEGER NOT NULL DEFAULT 1);

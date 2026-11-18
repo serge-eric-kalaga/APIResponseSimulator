@@ -30,17 +30,29 @@ export function Editor({
   item,
   ws,
   project,
+  initialEnvironment,
   refresh,
   notify,
 }: {
   item?: Item;
   ws: Workspace;
   project: string;
+  initialEnvironment?: string;
   refresh: () => Promise<void>;
   notify: (s: string) => void;
 }) {
-  const [d, set] = useState<Draft>(
-    () => item?.draft || blank(project || ws.user.projects[0] || ""),
+  const [d, set] = useState<Draft>(() =>
+    item
+      ? { ...item.draft, environment: item.environment }
+      : {
+          ...blank(
+            ws.environments.find((e) => e.id === initialEnvironment)?.project ||
+              project ||
+              ws.user.projects[0] ||
+              "",
+          ),
+          environment: initialEnvironment,
+        },
   );
   const [revision, setRevision] = useState(item?.revision),
     [dirty, setDirty] = useState(false),
@@ -53,9 +65,10 @@ export function Editor({
     [targetBody, setTargetBody] = useState<"body" | "hookBody">("body");
   const bodyRef = useRef<HTMLTextAreaElement>(null),
     hookRef = useRef<HTMLTextAreaElement>(null);
-  const archived = !!item?.archived;
+  const readOnly = !!item && !item.writable;
+  const archived = !!item?.archived || readOnly;
   useEffect(() => {
-    if (item)
+    if (item && item.writable)
       api<Version[]>("versions/" + item.id)
         .then(setVersions)
         .catch((e) => notify(e.message));
@@ -201,16 +214,23 @@ export function Editor({
           <div className="eyeline">ÉDITEUR HTTP</div>
           <h1>{item ? d.name || "Sans titre" : "Nouvelle simulation"}</h1>
           <p role="status">
-            {archived
-              ? "Simulation archivée"
-              : dirty
-                ? "Modifications non enregistrées"
-                : item
-                  ? "Brouillon enregistré"
-                  : "Brouillon local"}
+            {readOnly
+              ? "Partagée en lecture"
+              : archived
+                ? "Simulation archivée"
+                : dirty
+                  ? "Modifications non enregistrées"
+                  : item
+                    ? "Brouillon enregistré"
+                    : "Brouillon local"}
             {active ? " · Version active v" + active : ""}
           </p>
         </div>
+        {!!item?.writable && (
+          <a className="btn" href={"#/sharing/simulation/" + item.id}>
+            Partager la simulation
+          </a>
+        )}
       </header>
       <div className="editorLayout">
         <fieldset disabled={archived || busy} className="editorForm">
@@ -226,11 +246,49 @@ export function Editor({
                 <select
                   disabled={!!item}
                   value={d.project}
-                  onChange={(e) => edit("project", e.target.value)}
+                  onChange={(e) => {
+                    set({
+                      ...d,
+                      project: e.target.value,
+                      environment: undefined,
+                      destination: "",
+                    });
+                    setDirty(true);
+                  }}
                 >
-                  {ws.user.projects.map((p) => (
+                  {(readOnly ? [d.project] : ws.user.projects).map((p) => (
                     <option key={p}>{p}</option>
                   ))}
+                </select>
+              </Field>
+              <Field label="Environnement">
+                <select
+                  disabled={!!item}
+                  value={
+                    d.environment ||
+                    ws.environments.find(
+                      (e) => e.project === d.project && e.primary_env,
+                    )?.id ||
+                    ""
+                  }
+                  onChange={(e) => {
+                    set({ ...d, environment: e.target.value, destination: "" });
+                    setDirty(true);
+                  }}
+                >
+                  {readOnly ? (
+                    <option value={item.environment}>
+                      {item.environmentName}
+                    </option>
+                  ) : (
+                    ws.environments
+                      .filter((e) => e.project === d.project && e.writable)
+                      .map((e) => (
+                        <option key={e.id} value={e.id}>
+                          {e.name}
+                        </option>
+                      ))
+                  )}
                 </select>
               </Field>
               <Field label="Service simulé">

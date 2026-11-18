@@ -25,6 +25,7 @@ const variable = z.object({
 export const draftSchema = z.object({
   name: z.string().max(160),
   project: z.string().min(1).max(80),
+  environment: z.string().max(80).optional(),
   service: z.string().max(100),
   description: z.string().max(1600),
   tags: z.array(z.string().max(64)).max(20),

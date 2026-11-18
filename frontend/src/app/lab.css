@@ -466,10 +466,9 @@ small {
 }
 .simrow {
   display: grid;
-  grid-template-columns: minmax(200px, 2.8fr) minmax(66px, 0.8fr) minmax(
-      78px,
-      0.7fr
-    ) minmax(48px, 0.5fr) 32px;
+  grid-template-columns:
+    minmax(200px, 2.8fr) minmax(66px, 0.8fr) minmax(78px, 0.7fr)
+    minmax(48px, 0.5fr) 32px;
   gap: 10px;
   align-items: center;
   padding: 15px 22px;
@@ -1175,4 +1174,37 @@ textarea {
   .simrow .dropdown {
     right: 0;
   }
+}
+
+.projectForms {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  align-items: start;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.projectForms .block + .block {
+  margin-top: 0;
+}
+.envRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+.envRow > :first-child {
+  margin-right: auto;
+}
+.envRow small {
+  margin-top: 4px;
+}
+.gate form .actions {
+  margin-top: 16px;
+  justify-content: space-between;
+}
+.account > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }

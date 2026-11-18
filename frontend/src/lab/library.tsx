@@ -22,13 +22,18 @@ type Props = {
   refresh: () => Promise<void>;
   notify: (msg: string) => void;
   project: string;
+  environment?: Workspace["environments"][number];
 };
-export function Library({ ws, refresh, notify, project }: Props) {
+export function Library({ ws, refresh, notify, project, environment }: Props) {
   const [search, setSearch] = useState(""),
     [service, setService] = useState(""),
     [status, setStatus] = useState(""),
     [menu, setMenu] = useState("");
-  const scope = ws.items.filter((i) => !project || i.project === project);
+  const scope = ws.items.filter(
+    (i) =>
+      (!project || i.project === project) &&
+      (!environment || i.environment === environment.id),
+  );
   const rows = scope.filter(
     (i) =>
       (!service || i.draft.service === service) &&
@@ -53,6 +58,11 @@ export function Library({ ws, refresh, notify, project }: Props) {
         )
       )
         return;
+      if (act === "duplicate" && !ws.user.projects.length) {
+        navigate("#/projects");
+        notify("Créez votre projet pour y dupliquer cette simulation.");
+        return;
+      }
       const result = await api<Item>("scenarios/" + i.id + "/" + act, {});
       await refresh();
       if (act === "duplicate") navigate("#/editor/" + result.id);
@@ -67,11 +77,21 @@ export function Library({ ws, refresh, notify, project }: Props) {
       <header className="pageheading">
         <div>
           <div className="eyeline">ESPACE DE TRAVAIL</div>
-          <h1>Bibliothèque</h1>
+          <h1>{environment ? environment.name : "Bibliothèque"}</h1>
           <p>Configurez, publiez et rejouez vos simulations HTTP.</p>
         </div>
-        <a className="btn primary" href="#/new">
-          <Plus size={17} /> Nouvelle simulation
+        <a
+          className="btn primary"
+          href={
+            !ws.user.projects.length
+              ? "#/projects"
+              : environment?.writable
+                ? "#/new/" + environment.id
+                : "#/new"
+          }
+        >
+          <Plus size={17} />{" "}
+          {ws.user.projects.length ? "Nouvelle simulation" : "Créer un projet"}
         </a>
       </header>
       <section className="stats" aria-label="Vue d’ensemble">
@@ -213,7 +233,10 @@ export function Library({ ws, refresh, notify, project }: Props) {
                           <Copy />
                           Dupliquer
                         </button>
-                        {!i.archived && (
+                        {!!i.writable && (
+                          <a href={"#/sharing/simulation/" + i.id}>Partager</a>
+                        )}
+                        {!!i.writable && !i.archived && (
                           <button onClick={() => action(i, "archive")}>
                             <Archive />
                             Archiver
