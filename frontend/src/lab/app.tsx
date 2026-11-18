@@ -23,7 +23,8 @@ import type { Workspace } from "./client";
 import { Projects, Sharing } from "./projects";
 import { Library } from "./library";
 import { Editor } from "./editor";
-import { Health, History } from "./history";
+import { History } from "./history";
+import { Health } from "./health";
 import { RunDetail } from "./run-detail";
 
 function Brand() {
@@ -342,10 +343,12 @@ export function LabApp() {
           <Folder size={16} />
           <select
             aria-label="Filtrer par projet"
-            value={project}
+            value={view === "health" ? "" : project}
+            disabled={view === "health"}
             onChange={(e) => {
               setProject(e.target.value);
-              navigate("#/library");
+              if (view === "runs" && !id) setMobile(false);
+              else navigate("#/library");
             }}
           >
             <option value="">Tous les projets</option>
@@ -491,10 +494,12 @@ export function LabApp() {
             <RunDetail key={id} id={id} notify={notify} />
           ) : view === "runs" ? (
             <History
-              rows={ws.runs.filter((r) => !project || r.project === project)}
+              rows={ws.runs}
+              project={project}
+              resetProject={() => setProject("")}
             />
           ) : view === "health" ? (
-            <Health ws={ws} refresh={refresh} />
+            <Health ws={ws} refresh={refresh} notify={notify} />
           ) : (
             <Library
               ws={ws}

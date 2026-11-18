@@ -160,6 +160,13 @@ export async function exerciseCollaboration(browser, origin) {
     await stranger.goto(projectUrl);
     await stranger.reload();
     await expect(stranger.locator(".rowTitle")).toContainText("Contrat XML");
+    await reader.goto(origin + "/#/health");
+    await expect(
+      reader.getByRole("heading", { name: "État technique" }),
+    ).toBeVisible();
+    await expect(
+      reader.getByRole("tab", { name: /Autorisations/ }),
+    ).toHaveCount(0);
     const anonymous = await browser.newContext();
     contexts.push(anonymous);
     const anonymousPage = await anonymous.newPage();

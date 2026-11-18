@@ -1,201 +1,220 @@
 "use client";
 import { useState } from "react";
-import { Activity, ArrowUpRight, Inbox, Webhook } from "lucide-react";
-import { api, stateName, utc } from "./client";
+import { CalendarDays, ChevronRight, Inbox, Search } from "lucide-react";
+import { stateName } from "./client";
 import type { Run } from "./client";
+import s from "./monitoring.module.css";
 
-export function History({ rows }: { rows: Run[] }) {
+const utcDay = new Intl.DateTimeFormat("fr-FR", {
+  timeZone: "UTC",
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+});
+const shortDate = new Intl.DateTimeFormat("fr-FR", {
+  timeZone: "UTC",
+  dateStyle: "short",
+});
+const utcTime = new Intl.DateTimeFormat("fr-FR", {
+  timeZone: "UTC",
+  timeStyle: "medium",
+});
+const states = [
+  "pending",
+  "sending",
+  "retry",
+  "delivered",
+  "failed",
+  "cancelled",
+];
+const tones: Record<string, string> = {
+  pending: s.amber,
+  sending: s.amber,
+  retry: s.amber,
+  failed: s.red,
+  delivered: s.green,
+};
+const fold = (value: string) =>
+  value.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase("fr");
+
+function JournalRow({ run }: { run: Run }) {
+  const stamp = new Date(run.received);
   return (
-    <>
-      <header className="pageheading">
-        <div>
-          <div className="eyeline">OBSERVABILITÉ</div>
-          <h1>Exécutions</h1>
-          <p>
-            Retrouvez les appels reçus et les preuves associées à chaque
-            version.
-          </p>
-        </div>
-      </header>
-      <div className="panel">
-        <div className="sectionTitle">
-          <h2>Appels récents</h2>
-          <span className="count">{rows.length}</span>
-        </div>
-        {!rows.length ? (
-          <div className="empty">
-            <Inbox />
-            <p>Aucun appel reçu pour cette sélection.</p>
-            <a className="textBtn" href="#/library">
-              Ouvrir la bibliothèque
-            </a>
-          </div>
-        ) : (
-          rows.map((r) => (
-            <a key={r.id} className="runrow" href={"#/runs/" + r.id}>
-              <span className="routeIcon">
-                <Activity size={17} />
-              </span>
-              <span>
-                <strong>{r.name}</strong>
-                <small>
-                  {utc(r.received)} · {r.project} · v{r.version}
-                </small>
-              </span>
-              <code>HTTP {r.status}</code>
-              <span>{stateName(r.state)}</span>
-              <ArrowUpRight size={16} />
-            </a>
-          ))
+    <a className={s.runRow} href={"#/runs/" + run.id}>
+      <time className={s.callTime} dateTime={stamp.toISOString()}>
+        {utcTime.format(stamp)}
+      </time>
+      <span className={s.identity}>
+        <strong>{run.name}</strong>
+        <small>
+          {run.project} · v{run.version}
+        </small>
+      </span>
+      <span
+        className={s.http + " " + (run.status < 400 ? s.ok : s.refusal)}
+        aria-label={"HTTP " + run.status}
+      >
+        <b className={s.dot} />
+        {run.status}
+      </span>
+      <span className={s.hookState}>
+        {run.state && (
+          <b className={s.dot + " " + (tones[run.state] || s.none)} />
         )}
-      </div>
-    </>
+        {stateName(run.state)}
+      </span>
+      <ChevronRight className={s.rowArrow} size={14} />
+    </a>
   );
 }
-export function Health({
-  ws,
-  refresh,
-}: {
-  ws: import("./client").Workspace;
-  refresh: () => Promise<void>;
-}) {
-  const [error, setError] = useState(""),
-    [busy, setBusy] = useState(false);
-  async function review(id: string, action: string, url: string) {
-    if (
-      action === "approve" &&
-      !window.confirm(
-        "Confirmez que cette URL appartient à un service de recette autorisé : " +
-          url,
-      )
-    )
-      return;
-    setBusy(true);
-    setError("");
-    try {
-      await api("receivers/" + id, { action });
-      await refresh();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-  const activeDestinations = ws.destinations.filter(
-    (d) => d.status === "active",
-  );
 
-  const h = ws.health,
-    total = (h.delivered || 0) + (h.failed || 0);
+export function History({
+  rows,
+  project,
+  resetProject,
+}: {
+  rows: Run[];
+  project: string;
+  resetProject: () => void;
+}) {
+  const [search, setSearch] = useState(""),
+    [status, setStatus] = useState(""),
+    [hook, setHook] = useState(""),
+    [day, setDay] = useState("");
+  const dates = new Set<string>(),
+    groups = new Map<string, Run[]>();
+  const query = fold(search.trim());
+  let count = 0;
+  // The API returns the most recent calls first. Group by UTC so filters and displayed times agree across locales.
+  for (const run of rows) {
+    if (project && run.project !== project) continue;
+    const key = new Date(run.received).toISOString().slice(0, 10);
+    dates.add(key);
+    if (
+      (day && day !== key) ||
+      !String(run.status).startsWith(status) ||
+      (hook && hook !== (run.state ?? "none")) ||
+      !fold(run.name).includes(query)
+    )
+      continue;
+    const bucket = groups.get(key);
+    if (bucket) bucket.push(run);
+    else groups.set(key, [run]);
+    count++;
+  }
+  if (day) dates.add(day); // Keep the selected date available while the journal refreshes.
+  function reset() {
+    setSearch("");
+    setStatus("");
+    setHook("");
+    setDay("");
+    resetProject();
+  }
   return (
-    <>
-      <header className="pageheading">
-        <div>
-          <div className="eyeline">PILOTE</div>
-          <h1>Notifications</h1>
-          <p>
-            Suivez le worker et les livraisons HTTP de vos projets autorisés.
-          </p>
-        </div>
+    <div className={s.page}>
+      <header className={s.pageHead}>
+        <h1>Exécutions</h1>
       </header>
-      <div className="stats">
-        {[
-          ["En attente", h.waiting || 0],
-          ["Livrées", h.delivered || 0],
-          ["En échec", h.failed || 0],
-        ].map(([label, n]) => (
-          <div key={label}>
-            <span className="statIcon">
-              <Webhook size={18} />
-            </span>
-            <div>
-              <span>{label}</span>
-              <strong>{n}</strong>
+      <section aria-labelledby="journal-title">
+        <div className={s.sectionHeading}>
+          <h2 id="journal-title">Journal des appels</h2>
+          <label className={s.quietSelect}>
+            <CalendarDays size={16} />
+            <select
+              aria-label="Période"
+              value={day}
+              onChange={(e) => setDay(e.target.value)}
+            >
+              <option value="">Toutes les dates</option>
+              {Array.from(dates).map((key) => (
+                <option key={key} value={key}>
+                  {shortDate.format(new Date(key))}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className={s.tools}>
+          <label className={s.search}>
+            <Search size={17} />
+            <input
+              type="search"
+              aria-label="Rechercher une simulation"
+              placeholder="Rechercher une simulation…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </label>
+          <label className={s.select}>
+            Code HTTP
+            <select
+              aria-label="Code HTTP"
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+            >
+              <option value="">Tous</option>
+              {[2, 3, 4, 5].map((n) => (
+                <option key={n} value={n}>
+                  {n}xx
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={s.select}>
+            Webhook
+            <select
+              aria-label="Webhook"
+              value={hook}
+              onChange={(e) => setHook(e.target.value)}
+            >
+              <option value="">Tous</option>
+              {states.map((key) => (
+                <option key={key} value={key}>
+                  {stateName(key)}
+                </option>
+              ))}
+              <option value="none">Sans webhook</option>
+            </select>
+          </label>
+        </div>
+        <p className={s.listMeta} role="status">
+          {count} appel{count > 1 ? "s" : ""}
+          {rows.length === 250 && " · sur les 250 appels les plus récents"}
+        </p>
+        {Array.from(groups, ([key, list]) => (
+          <section className={s.day} key={key}>
+            <div className={s.dayHead}>
+              <h3>{utcDay.format(list[0].received)}</h3>
+              <span>Heure UTC</span>
             </div>
-          </div>
+            <div className={s.columnHead} aria-hidden="true">
+              <span>Heure</span>
+              <span>Simulation</span>
+              <span>HTTP</span>
+              <span>Webhook</span>
+            </div>
+            {list.map((run) => (
+              <JournalRow key={run.id} run={run} />
+            ))}
+          </section>
         ))}
-      </div>
-      <section className="panel block">
-        <h2>État technique</h2>
-        <dl className="facts">
-          <dt>Dernier signal du worker</dt>
-          <dd>
-            {h.heartbeat ? utc(h.heartbeat) : "Aucun signal"} ·{" "}
-            {h.online ? "En ligne" : "À vérifier"}
-          </dd>
-          <dt>Erreurs de configuration de livraison</dt>
-          <dd>{h.configErrors}</dd>
-          <dt>Retard de la file</dt>
-          <dd>{(h.lag / 1000).toFixed(1)} s</dd>
-          <dt>Taux de livraison terminé</dt>
-          <dd>
-            {total
-              ? Math.round((100 * (h.delivered || 0)) / total) + " %"
-              : "Aucune livraison terminée"}
-          </dd>
-        </dl>
-      </section>
-      {ws.receiverReview.length > 0 && (
-        <section className="panel block">
-          <h2>Autorisations des URL de réception</h2>
-          {error && (
-            <p role="alert" className="error">
-              {error}
-            </p>
-          )}
-          {ws.receiverReview.map((r) => (
-            <div key={r.id} className="resourceRow">
-              <div>
-                <strong className="wrap">{r.url}</strong>
-                <small>
-                  {r.project} ·{" "}
-                  {r.status === "pending"
-                    ? "En attente"
-                    : r.status === "active"
-                      ? "Autorisée"
-                      : "Révoquée"}
-                </small>
-              </div>
-              {r.status !== "active" && (
-                <button
-                  className="btn small"
-                  disabled={busy}
-                  onClick={() => review(r.id, "approve", r.url)}
-                >
-                  Autoriser
-                </button>
-              )}
-              {r.status !== "revoked" && (
-                <button
-                  className="textBtn"
-                  disabled={busy}
-                  onClick={() => review(r.id, "revoke", r.url)}
-                >
-                  Retirer
-                </button>
-              )}
-            </div>
-          ))}
-        </section>
-      )}
-      <section className="panel block">
-        <h2>Destinations autorisées</h2>
-        {activeDestinations.length ? (
-          activeDestinations.map((d) => (
-            <div key={d.id} className="dest">
-              <span className="routeIcon">
-                <Webhook size={16} />
-              </span>
-              <span>
-                <strong>{d.label}</strong>
-                <small>{d.projects.join(" · ")} · POST</small>
-              </span>
-            </div>
-          ))
-        ) : (
-          <p>Aucune destination disponible.</p>
+        {!count && (
+          <div className={s.empty}>
+            <Inbox size={20} />
+            <h3>{rows.length ? "Aucun appel trouvé" : "Aucun appel reçu"}</h3>
+            {project || day || search || status || hook ? (
+              <button className={s.linkButton} onClick={reset}>
+                Effacer les filtres
+              </button>
+            ) : (
+              <a className={s.linkButton} href="#/library">
+                Ouvrir la bibliothèque
+              </a>
+            )}
+          </div>
         )}
       </section>
-    </>
+    </div>
   );
 }

@@ -225,6 +225,7 @@ export async function administration(req, parts, db) {
           )
           .all(user.name),
         destinations: [...allowed, ...receivers.own],
+        canReviewReceivers: receivers.canReview,
         receiverReview: receivers.review,
         health: technical(db, user),
       });

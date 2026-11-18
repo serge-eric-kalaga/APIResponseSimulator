@@ -92,6 +92,7 @@ export function receiverList(db, user) {
     )
     .all(user.name);
   return {
+    canReview: admin,
     own: rows.map((r) => ({ ...entry(r), status: r.status })),
     review: admin
       ? db

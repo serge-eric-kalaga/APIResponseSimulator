@@ -77,6 +77,7 @@ export type Workspace = {
   runs: Run[];
   runCounts: { project: string; total: number }[];
   destinations: Destination[];
+  canReviewReceivers: boolean;
   receiverReview: {
     id: string;
     url: string;

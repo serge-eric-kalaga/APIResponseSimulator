@@ -10,7 +10,7 @@ export function EditorTabs<T extends string>({
   label,
   compact = false,
 }: {
-  tabs: readonly { id: T; label: string; icon?: ReactNode }[];
+  tabs: readonly { id: T; label: ReactNode; icon?: ReactNode }[];
   value: T;
   select: (id: T) => void;
   label: string;

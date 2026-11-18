@@ -1,4 +1,5 @@
 /** Run through the public UI with an isolated database and fictional accounts. Requires npm run build. */
+import { exerciseMonitoring } from "./monitoring-browser.mjs";
 import { exerciseTrace } from "./trace-browser.mjs";
 import { exerciseCollaboration } from "./collaboration-browser.mjs";
 import { chromium, expect } from "@playwright/test";
@@ -69,6 +70,7 @@ try {
   if (process.env.RELAIS_SCREENSHOT)
     await page.screenshot({ path: process.env.RELAIS_SCREENSHOT });
   await exerciseTrace(ctx, url, env);
+  await exerciseMonitoring(ctx, url);
   await page.getByLabel("Rechercher dans les simulations").fill("Webhook");
   await expect(page.locator(".rowTitle")).toHaveCount(1);
   await page.getByLabel("Rechercher dans les simulations").fill("");
