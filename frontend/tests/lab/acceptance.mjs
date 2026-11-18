@@ -23,7 +23,9 @@ const login = await fetch(origin + "/api/lab/login", {
           email: process.env.RELAIS_QA_EMAIL,
           password: process.env.RELAIS_QA_PASSWORD,
         }
-      : { key: access.cle_interface },
+      : JSON.parse(
+          readFileSync(resolve(home, "connexion-pilote.json"), "utf8"),
+        ),
   ),
 });
 assert.equal(login.status, 200);

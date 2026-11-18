@@ -13,6 +13,7 @@ export function openDatabase(
     CREATE TABLE IF NOT EXISTS projects(name TEXT PRIMARY KEY, key_hash TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS accounts(name TEXT PRIMARY KEY, key_hash TEXT UNIQUE NOT NULL);
     CREATE TABLE IF NOT EXISTS passwords(login TEXT PRIMARY KEY REFERENCES accounts(name), email TEXT UNIQUE NOT NULL, salt TEXT NOT NULL, verifier TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS account_profiles(login TEXT PRIMARY KEY REFERENCES accounts(name), first_name TEXT NOT NULL, last_name TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS grants(login TEXT REFERENCES accounts(name), project TEXT REFERENCES projects(name),
       PRIMARY KEY(login,project));
     CREATE TABLE IF NOT EXISTS sharing(kind TEXT NOT NULL, resource TEXT NOT NULL, recipient TEXT NOT NULL, PRIMARY KEY(kind,resource,recipient));

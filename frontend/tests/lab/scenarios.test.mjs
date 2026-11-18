@@ -4,7 +4,7 @@ import { openDatabase } from "../../src/lab/server/db.mjs";
 import {
   createAccount,
   createProject,
-  signIn,
+  openSession,
   identity,
 } from "../../src/lab/server/access.mjs";
 import {
@@ -24,8 +24,14 @@ function setup() {
   const db = openDatabase(":memory:"),
     key = createProject(db, "QA");
   createProject(db, "Beta");
-  const user = identity(db, signIn(db, createAccount(db, "alice", ["QA"])));
-  const other = identity(db, signIn(db, createAccount(db, "bob", ["Beta"])));
+  const user = identity(
+    db,
+    openSession(db, createAccount(db, "alice", ["QA"])),
+  );
+  const other = identity(
+    db,
+    openSession(db, createAccount(db, "bob", ["Beta"])),
+  );
   const d = {
     ...blank("QA"),
     name: "Validation",

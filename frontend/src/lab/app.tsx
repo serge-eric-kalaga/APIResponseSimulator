@@ -28,10 +28,11 @@ import { Brand } from "./brand";
 import { RunDetail } from "./run-detail";
 
 function Login({ onLogin }: { onLogin: () => Promise<void> }) {
-  const [mode, setMode] = useState<"login" | "register" | "migrate">("login");
+  const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState(""),
     [password, setPassword] = useState("");
-  const [key, setKey] = useState(""),
+  const [firstName, setFirstName] = useState(""),
+    [lastName, setLastName] = useState(""),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   return (
@@ -46,7 +47,7 @@ function Login({ onLogin }: { onLogin: () => Promise<void> }) {
               await api(mode, {
                 email,
                 password,
-                ...(mode === "migrate" ? { key } : {}),
+                ...(mode === "register" ? { firstName, lastName } : {}),
               });
               await onLogin();
             } catch (e) {
@@ -62,14 +63,10 @@ function Login({ onLogin }: { onLogin: () => Promise<void> }) {
           <h1>
             {mode === "register"
               ? "Créer un compte"
-              : mode === "migrate"
-                ? "Récupérer mon compte"
-                : "Ouvrir votre espace de test."}
+              : "Ouvrir votre espace de test."}
           </h1>
           <p>
-            {mode === "migrate"
-              ? "Associez votre ancienne clé à une adresse e-mail pour retrouver vos projets."
-              : "Retrouvez vos projets et vos simulations HTTP dans votre espace."}
+            Retrouvez vos projets et vos simulations HTTP dans votre espace.
           </p>
           <label className="field">
             <span>Adresse e-mail</span>
@@ -81,6 +78,28 @@ function Login({ onLogin }: { onLogin: () => Promise<void> }) {
               onChange={(e) => setEmail(e.target.value)}
             />
           </label>
+          {mode === "register" && (
+            <div className="signupNames">
+              <label className="field">
+                <span>Nom (facultatif)</span>
+                <input
+                  autoComplete="family-name"
+                  maxLength={100}
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                />
+              </label>
+              <label className="field">
+                <span>Prénom (facultatif)</span>
+                <input
+                  autoComplete="given-name"
+                  maxLength={100}
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                />
+              </label>
+            </div>
+          )}
           <label className="field">
             <span>Mot de passe</span>
             <input
@@ -96,17 +115,6 @@ function Login({ onLogin }: { onLogin: () => Promise<void> }) {
             />
             {mode !== "login" && <small>10 caractères minimum.</small>}
           </label>
-          {mode === "migrate" && (
-            <label className="field">
-              <span>Ancienne clé d’accès</span>
-              <input
-                type="password"
-                required
-                value={key}
-                onChange={(e) => setKey(e.target.value)}
-              />
-            </label>
-          )}
           {error && (
             <p className="error" role="alert">
               {error}
@@ -117,34 +125,22 @@ function Login({ onLogin }: { onLogin: () => Promise<void> }) {
               ? "Un instant…"
               : mode === "register"
                 ? "Créer mon compte"
-                : mode === "migrate"
-                  ? "Associer mon compte"
-                  : "Se connecter"}
+                : "Se connecter"}
             <ArrowRight size={17} />
           </button>
           <div className="actions">
-            {(["login", "register", "migrate"] as const)
-              .filter((m) => m !== mode)
-              .map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  disabled={busy}
-                  className="textBtn"
-                  onClick={() => {
-                    setMode(m);
-                    setError("");
-                    setKey("");
-                    setPassword("");
-                  }}
-                >
-                  {m === "login"
-                    ? "Se connecter"
-                    : m === "register"
-                      ? "Créer un compte"
-                      : "J’ai une ancienne clé"}
-                </button>
-              ))}
+            <button
+              type="button"
+              disabled={busy}
+              className="textBtn"
+              onClick={() => {
+                setMode(mode === "login" ? "register" : "login");
+                setError("");
+                setPassword("");
+              }}
+            >
+              {mode === "login" ? "Créer un compte" : "Se connecter"}
+            </button>
           </div>
         </form>
         <div className="gateFoot">
@@ -276,6 +272,10 @@ export function LabApp() {
         )}
       </main>
     );
+  const displayName =
+    [ws.user.firstName, ws.user.lastName].filter(Boolean).join(" ") ||
+    ws.user.email ||
+    ws.user.name;
   const [, view, id, resourceId] = route.split("/"),
     group = ["new", "editor"].includes(view)
       ? "library"
@@ -364,9 +364,9 @@ export function LabApp() {
             <Radio size={15} /> Console pilote
           </div>
           <div className="account">
-            <b>{ws.user.name.slice(0, 2).toUpperCase()}</b>
+            <b>{displayName.slice(0, 2).toUpperCase()}</b>
             <span>
-              {ws.user.name}
+              {displayName}
               <small>Accès personnel</small>
             </span>
             <button

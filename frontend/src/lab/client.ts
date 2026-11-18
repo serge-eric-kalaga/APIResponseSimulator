@@ -71,7 +71,13 @@ export type Destination = {
   projects: string[];
 };
 export type Workspace = {
-  user: { name: string; projects: string[] };
+  user: {
+    name: string;
+    email: string | null;
+    firstName: string;
+    lastName: string;
+    projects: string[];
+  };
   projects: { name: string; writable: number }[];
   items: Item[];
   runs: Run[];

@@ -4,15 +4,14 @@ import {
   createAccount,
   createProject,
   identity,
-  signIn,
 } from "../../src/lab/server/access.mjs";
 import { openDatabase } from "../../src/lab/server/db.mjs";
 import { enroll, passwordLogin } from "../../src/lab/server/passwords.mjs";
-test("public registration, password login and migration isolate existing projects", async () => {
+test("public registration, password login and profile names isolate existing projects", async () => {
   const db = openDatabase(":memory:");
   try {
     createProject(db, "Atlas");
-    const key = createAccount(db, "Pilote", ["Atlas"]);
+    createAccount(db, "Pilote", ["Atlas"]);
     const input = { email: "  A@Example.test ", password: "secret-de-test" };
     const session = await enroll(db, input);
     assert.deepEqual(identity(db, session).projects, []);
@@ -25,18 +24,40 @@ test("public registration, password login and migration isolate existing project
       passwordLogin(db, { ...input, password: "incorrect" }),
       (e) => e.status === 401,
     );
-    const legacy = {
-      email: "pilote@example.test",
-      password: "nouveau-secret",
-      key,
-    };
-    const upgraded = await enroll(db, legacy, true);
-    assert.deepEqual(identity(db, upgraded).projects, ["Atlas"]);
-    assert.throws(() => signIn(db, key));
+    for (const [firstName, lastName] of [
+      ["Awa", "Traoré"],
+      ["Awa", ""],
+      ["", "Pilote"],
+    ]) {
+      const email = `membre${firstName.length}${lastName.length}@example.test`;
+      await enroll(db, {
+        ...input,
+        email,
+        firstName: " " + firstName + " ",
+        lastName,
+      });
+      const account = identity(
+        db,
+        await passwordLogin(db, { ...input, email }),
+      );
+      assert.deepEqual(account, {
+        name: email,
+        email,
+        firstName,
+        lastName,
+        projects: [],
+      });
+    }
+    assert.equal(identity(db, session).firstName, "");
+    assert.equal(identity(db, session).lastName, "");
     await assert.rejects(
-      enroll(db, { ...legacy, email: "autre@example.test" }, true),
+      enroll(db, { ...input, lastName: "x".repeat(101) }),
+      (e) => e.status === 422,
     );
-    assert.equal(identity(db, await passwordLogin(db, legacy)).name, "Pilote");
+    await assert.rejects(
+      enroll(db, { ...input, firstName: 42 }),
+      (e) => e.status === 422,
+    );
   } finally {
     db.close();
   }

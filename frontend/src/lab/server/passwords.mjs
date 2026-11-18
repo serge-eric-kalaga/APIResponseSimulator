@@ -1,6 +1,6 @@
 import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
-import { hash, insertAccount, openSession } from "./access.mjs";
+import { insertAccount, openSession } from "./access.mjs";
 import { Problem, transaction } from "./db.mjs";
 
 const derive = promisify(scrypt);
@@ -22,38 +22,51 @@ function credentials(input, creating) {
     );
   return { email, password };
 }
-/** An old key can only bind its own account. Sessions keep the original login and grants. */
-export async function enroll(db, input, migrate = false) {
+function optionalName(value) {
+  if (value === undefined || value === null) return "";
+  if (typeof value !== "string" || value.trim().length > 100)
+    throw new Problem(
+      422,
+      "Le nom et le prénom sont limités à 100 caractères chacun.",
+    );
+  return value.trim();
+}
+export async function preparePassword(input) {
   const { email, password } = credentials(input, true);
   const salt = randomBytes(16).toString("hex");
   const verifier = (await derive(password, salt, 64, cost)).toString("hex");
-  return transaction(db, () => {
-    let login = email;
-    if (migrate) {
-      const old = db
-        .prepare(
-          "SELECT name FROM accounts WHERE key_hash=? AND NOT EXISTS (SELECT 1 FROM passwords WHERE login=accounts.name)",
-        )
-        .get(hash(String(input.key || "")));
-      if (!old)
-        throw new Problem(
-          401,
-          "La clé de l’ancien compte est invalide ou a déjà été utilisée.",
-        );
-      login = old.name;
-    }
-    if (
-      db.prepare("SELECT 1 FROM passwords WHERE email=?").get(email) ||
-      (!migrate && db.prepare("SELECT 1 FROM accounts WHERE name=?").get(login))
-    )
-      throw new Problem(409, "Cette adresse est déjà utilisée.");
-    if (!migrate) insertAccount(db, login, []);
-    db.prepare("INSERT INTO passwords VALUES(?,?,?,?)").run(
-      login,
-      email,
-      salt,
-      verifier,
+  return { email, salt, verifier };
+}
+
+/** Bind a password once inside the caller's transaction. Internal account IDs also own grants and traces. */
+export function bindPassword(db, login, { email, salt, verifier }) {
+  if (
+    db
+      .prepare("SELECT 1 FROM passwords WHERE login=? OR email=?")
+      .get(login, email)
+  )
+    throw new Problem(
+      409,
+      "Ce compte ou cette adresse e-mail est déjà utilisé.",
     );
+  db.prepare(
+    "INSERT INTO passwords(login,email,salt,verifier) VALUES(?,?,?,?)",
+  ).run(login, email, salt, verifier);
+}
+export async function enroll(db, input) {
+  const firstName = optionalName(input.firstName),
+    lastName = optionalName(input.lastName);
+  const record = await preparePassword(input);
+  return transaction(db, () => {
+    const login = record.email;
+    if (db.prepare("SELECT 1 FROM accounts WHERE name=?").get(login))
+      throw new Problem(409, "Cette adresse est déjà utilisée.");
+    insertAccount(db, login, []);
+    bindPassword(db, login, record);
+    if (firstName || lastName)
+      db.prepare(
+        "INSERT INTO account_profiles(login,first_name,last_name) VALUES(?,?,?)",
+      ).run(login, firstName, lastName);
     return openSession(db, login);
   });
 }

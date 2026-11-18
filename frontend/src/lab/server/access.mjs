@@ -9,23 +9,16 @@ export function createProject(db, name) {
 }
 /** Insert the account and its project grants inside the caller's transaction. */
 export function insertAccount(db, login, projects) {
-  const token = key();
-  db.prepare("INSERT INTO accounts VALUES(?,?)").run(login, hash(token));
+  // Existing databases require a unique key_hash. This placeholder is never an authentication credential.
+  db.prepare(
+    "INSERT INTO accounts(name,key_hash) VALUES(?,hex(randomblob(32)))",
+  ).run(login);
   for (const project of projects)
     db.prepare("INSERT INTO grants VALUES(?,?)").run(login, project);
-  return token;
+  return login;
 }
 export function createAccount(db, login, projects) {
   return transaction(db, () => insertAccount(db, login, projects));
-}
-export function signIn(db, token) {
-  const account = db
-    .prepare(
-      "SELECT name FROM accounts WHERE key_hash=? AND NOT EXISTS (SELECT 1 FROM passwords WHERE login=accounts.name)",
-    )
-    .get(hash(token));
-  if (!account) throw new Problem(401, "Clé d’accès invalide.");
-  return openSession(db, account.name);
 }
 export function openSession(db, login) {
   const session = key();
@@ -38,12 +31,19 @@ export function openSession(db, login) {
 }
 export function identity(db, session) {
   const account = db
-    .prepare("SELECT login FROM sessions WHERE token=? AND expires>?")
+    .prepare(
+      `SELECT s.login,p.email,COALESCE(n.first_name,'') firstName,COALESCE(n.last_name,'') lastName
+      FROM sessions s LEFT JOIN passwords p ON p.login=s.login LEFT JOIN account_profiles n ON n.login=s.login
+      WHERE s.token=? AND s.expires>?`,
+    )
     .get(hash(session), Date.now());
   if (!account)
     throw new Problem(401, "Connectez-vous pour ouvrir votre espace.");
   return {
     name: account.login,
+    email: account.email,
+    firstName: account.firstName,
+    lastName: account.lastName,
     projects: db
       .prepare("SELECT project FROM grants WHERE login=? ORDER BY project")
       .all(account.login)

@@ -3,7 +3,7 @@ import { expect } from "@playwright/test";
 /** Real, isolated cookie jars verify that shared links and the registered-users-only catalogue agree. */
 export async function exerciseCollaboration(browser, origin) {
   const contexts = [];
-  async function signup(email) {
+  async function signup(email, withNames = false) {
     const context = await browser.newContext();
     contexts.push(context);
     const page = await context.newPage();
@@ -11,12 +11,25 @@ export async function exerciseCollaboration(browser, origin) {
     await page
       .getByRole("button", { name: "Créer un compte", exact: true })
       .click();
+    await expect(
+      page.getByRole("button", { name: /ancienne clé/i }),
+    ).toHaveCount(0);
+    if (withNames) {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.getByLabel("Nom (facultatif)", { exact: true }).fill("Traoré");
+      await page.getByLabel("Prénom (facultatif)").fill("Awa");
+    }
     await page.getByLabel("Adresse e-mail").fill(email);
     await page.getByLabel("Mot de passe").fill("recette-collaborative");
     await page.getByRole("button", { name: "Créer mon compte" }).click();
     await expect(
       page.getByRole("heading", { name: "Bibliothèque" }),
     ).toBeVisible();
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.reload();
+    await expect(page.locator(".account")).toContainText(
+      withNames ? "Awa Traoré" : email,
+    );
     return page;
   }
   async function createProject(page, name) {
@@ -42,7 +55,7 @@ export async function exerciseCollaboration(browser, origin) {
       .innerText();
   }
   try {
-    const owner = await signup("proprietaire@example.test"),
+    const owner = await signup("proprietaire@example.test", true),
       reader = await signup("lectrice@example.test"),
       stranger = await signup("tiers@example.test");
     await createProject(reader, "Copie privée");

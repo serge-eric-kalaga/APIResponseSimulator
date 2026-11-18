@@ -2,7 +2,7 @@ import { ZodError } from "zod";
 import { FieldError } from "../model.ts";
 import { database, Problem, limit } from "./db.mjs";
 import { enroll, passwordLogin } from "./passwords.mjs";
-import { identity, signIn, hash } from "./access.mjs";
+import { identity, hash } from "./access.mjs";
 import { destinations, target } from "./targets.mjs";
 import {
   activeConfig,
@@ -74,7 +74,10 @@ function errorResponse(error) {
     return json({ error: error.message, source: "relais" }, error.status, {
       "x-lab-error": "1",
     });
-  console.error("Erreur interne HTTP Response Simulator", error?.code || error?.name);
+  console.error(
+    "Erreur interne HTTP Response Simulator",
+    error?.code || error?.name,
+  );
   return json(
     {
       error: "Le simulateur ne peut pas enregistrer cette opération.",
@@ -163,14 +166,12 @@ export async function administration(req, parts, db) {
         ?.match(/(?:^|;\s*)relais_session=([\w-]+)/)?.[1] || "";
     const cookieValue = (val, age) =>
       `relais_session=${val}; HttpOnly; Path=/; SameSite=Strict; Max-Age=${age}${new URL(origin).protocol === "https:" ? "; Secure" : ""}`;
-    if (["login", "register", "migrate"].includes(resource) && write) {
+    if (["login", "register"].includes(resource) && write) {
       limit(db, "login", 90);
       const session =
         resource === "login"
-          ? payload.email !== undefined
-            ? await passwordLogin(db, payload)
-            : signIn(db, String(payload.key || ""))
-          : await enroll(db, payload, resource === "migrate");
+          ? await passwordLogin(db, payload)
+          : await enroll(db, payload);
       return json({ ok: true }, 200, {
         "set-cookie": cookieValue(session, 28800),
       });

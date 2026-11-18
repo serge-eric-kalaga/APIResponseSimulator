@@ -16,7 +16,7 @@ npm ci
 npm run dev
 ```
 
-Ouvrez la console et choisissez **Créer un compte**. L’inscription utilise une adresse e-mail et un mot de passe. [Ouvrir la console locale](http://127.0.0.1:3210/)
+Ouvrez la console et choisissez **Créer un compte**. Renseignez votre adresse e-mail et un mot de passe de 10 à 256 caractères. Le nom et le prénom sont facultatifs. Pour vous reconnecter, utilisez votre e-mail et votre mot de passe. [Ouvrir la console locale](http://127.0.0.1:3210/)
 
 La commande démarre la console sur le port `3210`, le worker qui livre les webhooks et le récepteur de recette local sur le port `3922`. Les données sont conservées dans `data/` à la racine du dépôt. Pour lancer la version compilée, exécutez `npm run build` puis `npm start` dans `frontend/`. La variable `PORT` permet de changer le port de la console.
 
@@ -70,11 +70,7 @@ Pour une instance d’équipe, utilisez une adresse commune derrière un proxy H
 
 ## Explorer les scénarios de démonstration
 
-Le compte **Pilote** dispose de quatre simulations initiales. À la connexion, **J’ai une ancienne clé** permet de rattacher ce compte à une adresse e-mail et à un mot de passe avec la clé d’interface du fichier privé `data/acces-pilote.json`. Avec Docker, cette commande en crée une copie locale à conserver en accès privé.
-
-```sh
-docker compose cp relais:/var/lib/relais/acces-pilote.json ./data-acces-pilote.json
-```
+Le compte **Pilote** dispose de quatre simulations initiales. L’initialisation enregistre son e-mail et son mot de passe dans le fichier privé `data/connexion-pilote.json` (dans Docker, `/var/lib/relais/connexion-pilote.json`). Utilisez ces identifiants sur l’écran **Se connecter**. Si ce compte possède déjà un mot de passe, ses identifiants existants restent valides.
 
 | Projet | Simulation | Comportement |
 | --- | --- | --- |
@@ -94,7 +90,7 @@ Exécutez les commandes depuis `frontend/`.
 | `npm run test:browser` | Parcours bureau et mobile sur une base éphémère, après compilation. |
 | `npm run test:acceptance` | Quatre scénarios de démonstration sur une instance démarrée, avec livraison réelle à deux minutes et doublon contrôlé. |
 
-Le test navigateur utilise Chrome sur macOS lorsqu’il est installé. Sur un autre poste, installez Chromium avec `npx playwright install chromium`. Le test de recette crée des exécutions dans l’historique de l’instance et attend les contrats de démonstration d’origine. Après rattachement du compte Pilote, fournissez ses identifiants via `RELAIS_QA_EMAIL` et `RELAIS_QA_PASSWORD`.
+Le test navigateur utilise Chrome sur macOS lorsqu’il est installé. Sur un autre poste, installez Chromium avec `npx playwright install chromium`. Le test de recette crée des exécutions dans l’historique de l’instance et attend les contrats de démonstration d’origine. La recette lit les identifiants dans le fichier de connexion du pilote. Pour utiliser les identifiants d’un compte Pilote déjà configuré, définissez `RELAIS_QA_EMAIL` et `RELAIS_QA_PASSWORD`.
 
 Le code de la console et du moteur se trouve dans `frontend/src/lab/`, les routes HTTP dans `frontend/src/app/` et les scripts de démarrage dans `frontend/scripts/`. SQLite conserve les scénarios, leurs versions, les exécutions et la file de notifications. Le socle FastAPI initial et ses outils de supervision sont conservés pour référence.
 

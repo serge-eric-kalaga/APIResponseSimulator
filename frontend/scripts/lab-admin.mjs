@@ -5,6 +5,8 @@ import {
   writeFileSync,
   readFileSync,
 } from "node:fs";
+import { randomBytes } from "node:crypto";
+import { bindPassword, preparePassword } from "../src/lab/server/passwords.mjs";
 import { resolve } from "node:path";
 import { openDatabase, transaction } from "../src/lab/server/db.mjs";
 import { insertAccount, createProject } from "../src/lab/server/access.mjs";
@@ -25,6 +27,31 @@ const write = (file, data) =>
     mode: 0o600,
     flag: "wx",
   });
+// The local administrator can activate an existing account while keeping its project ownership.
+async function activate(login, email, path) {
+  const linked = () =>
+    db.prepare("SELECT 1 FROM passwords WHERE login=?").get(login);
+  if (linked()) return false;
+  if (!db.prepare("SELECT 1 FROM accounts WHERE name=?").get(login))
+    throw Error("Compte introuvable.");
+  const saved = existsSync(path);
+  const credentials = saved
+    ? JSON.parse(readFileSync(path, "utf8"))
+    : {
+        email,
+        password: randomBytes(24).toString("base64url"),
+      };
+  if (credentials.email !== email)
+    throw Error("Adresse différente dans le fichier de connexion existant.");
+  const record = await preparePassword(credentials);
+  return transaction(db, () => {
+    if (linked()) return false;
+    bindPassword(db, login, record);
+    db.prepare("DELETE FROM sessions WHERE login=?").run(login);
+    if (!saved) write(path, credentials);
+    return true;
+  });
+}
 try {
   if (command === "init") {
     const credentials = resolve(dir, "acces-pilote.json");
@@ -33,15 +60,24 @@ try {
         const projects = {};
         for (const p of ["Atlas", "Studio"]) projects[p] = createProject(db, p);
         // This transaction also owns the access-file creation. An existing pilot is never reset.
-        const key = insertAccount(db, "Pilote", Object.keys(projects));
+        insertAccount(db, "Pilote", Object.keys(projects));
         write(credentials, {
           compte: "Pilote",
-          cle_interface: key,
           cles_declenchement: projects,
         });
         return projects;
       });
       console.log("Projets initialisés :", Object.keys(keys).join(", "));
+    }
+    const pilotFile = resolve(dir, "connexion-pilote.json");
+    if (!db.prepare("SELECT 1 FROM passwords WHERE login='Pilote'").get()) {
+      let email = "pilote@http-simulator.test";
+      if (existsSync(pilotFile))
+        email = JSON.parse(readFileSync(pilotFile, "utf8")).email;
+      else if (db.prepare("SELECT 1 FROM passwords WHERE email=?").get(email))
+        email = `pilote-${randomBytes(8).toString("hex")}@http-simulator.test`;
+      if (await activate("Pilote", email, pilotFile))
+        console.log("Connexion du pilote :", pilotFile);
     }
     if (!existsSync(config))
       write(config, [
@@ -77,33 +113,31 @@ try {
         cle_declenchement: createProject(db, name),
       }),
     );
-  } else if (
-    command === "account" &&
-    valid(name) &&
-    args.length &&
-    args.every(valid)
-  ) {
-    transaction(db, () =>
-      write(resolve(dir, "compte-" + name + ".json"), {
-        compte: name,
-        cle_interface: insertAccount(db, name, args),
-      }),
-    );
+  } else if (command === "activate" && valid(name) && args.length === 1) {
+    const path = resolve(dir, "connexion-" + name + ".json");
+    if (!(await activate(name, args[0].trim().toLowerCase(), path)))
+      throw Error("Ce compte possède déjà un mot de passe.");
+    console.log("Connexion du compte :", path);
   } else if (command === "grant" || command === "revoke") {
-    if (!valid(name) || !valid(args[0]))
-      throw Error("Compte et projet requis.");
+    if (!name || !valid(args[0])) throw Error("Compte et projet requis.");
+    const account = valid(name)
+      ? db.prepare("SELECT name AS login FROM accounts WHERE name=?").get(name)
+      : db
+          .prepare("SELECT login FROM passwords WHERE email=?")
+          .get(name.trim().toLowerCase());
+    if (!account) throw Error("Compte introuvable.");
     db.prepare(
       command === "grant"
         ? "INSERT OR IGNORE INTO grants VALUES(?,?)"
         : "DELETE FROM grants WHERE login=? AND project=?",
-    ).run(name, args[0]);
+    ).run(account.login, args[0]);
   } else if (command === "verify-destinations") {
     for (const entry of JSON.parse(readFileSync(config, "utf8")))
       for (const p of entry.projects) target(entry.id, p, null, [entry]);
     console.log("Destinations validées.");
   } else
     throw Error(
-      "Commandes : init, project NOM, account NOM PROJET..., grant COMPTE PROJET, revoke COMPTE PROJET, verify-destinations.",
+      "Commandes : init, project NOM, activate NOM EMAIL, grant EMAIL PROJET, revoke EMAIL PROJET, verify-destinations.",
     );
   chmodSync(file, 0o600);
 } finally {

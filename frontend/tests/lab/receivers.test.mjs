@@ -4,7 +4,7 @@ import {
   identity,
   createAccount,
   createProject,
-  signIn,
+  openSession,
 } from "../../src/lab/server/access.mjs";
 import { openDatabase } from "../../src/lab/server/db.mjs";
 import {
@@ -18,13 +18,19 @@ test("a registered receiver is scoped, approved, snapshotted and rechecked befor
   const db = openDatabase(":memory:");
   try {
     const key = createProject(db, "Test");
-    const owner = identity(db, signIn(db, createAccount(db, "a", ["Test"])));
-    const admin = identity(db, signIn(db, createAccount(db, "Pilote", [])));
+    const owner = identity(
+      db,
+      openSession(db, createAccount(db, "a", ["Test"])),
+    );
+    const admin = identity(
+      db,
+      openSession(db, createAccount(db, "Pilote", [])),
+    );
     db.prepare("INSERT INTO operators VALUES(?)").run(admin.name);
     createProject(db, "Autre");
     const other = identity(
       db,
-      signIn(db, createAccount(db, "autre", ["Autre"])),
+      openSession(db, createAccount(db, "autre", ["Autre"])),
     );
     const payload = {
       project: "Test",

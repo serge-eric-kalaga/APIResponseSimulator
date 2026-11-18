@@ -21,9 +21,9 @@ const init = spawnSync(process.execPath, ["scripts/lab-admin.mjs", "init"], {
   stdio: "inherit",
 });
 if (init.status !== 0) throw Error("Initialisation de la recette impossible.");
-const key = JSON.parse(
-  readFileSync(join(home, "acces-pilote.json")),
-).cle_interface;
+const pilot = JSON.parse(
+  readFileSync(join(home, "connexion-pilote.json"), "utf8"),
+);
 const port = process.env.RELAIS_QA_PORT || "3211",
   url = "http://127.0.0.1:" + port;
 const server = spawn(
@@ -58,11 +58,9 @@ try {
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(url);
-  await page.getByRole("button", { name: "J’ai une ancienne clé" }).click();
-  await page.getByLabel("Ancienne clé d’accès").fill(key);
-  await page.getByLabel("Adresse e-mail").fill("pilote@example.test");
-  await page.getByLabel("Mot de passe").fill("mot-de-passe-de-recette");
-  await page.getByRole("button", { name: "Associer mon compte" }).click();
+  await page.getByLabel("Adresse e-mail").fill(pilot.email);
+  await page.getByLabel("Mot de passe").fill(pilot.password);
+  await page.getByRole("button", { name: "Se connecter" }).click();
   await expect(
     page.getByRole("heading", { name: "Bibliothèque" }),
   ).toBeVisible();
