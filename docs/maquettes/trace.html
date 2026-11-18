@@ -614,6 +614,7 @@
         }
       }
     </style>
+    <link rel="stylesheet" href="menu.css" />
   </head>
   <body>
     <header class="bar">
@@ -667,7 +668,7 @@
         </button>
         <nav id="global-nav" class="nav" aria-label="Console locale">
           <a href="http://127.0.0.1:3210/#/projects">Projets</a
-          ><a href="http://127.0.0.1:3210/#/library">Bibliothèque</a
+          ><a href="bibliotheque.html">Bibliothèque</a
           ><a href="http://127.0.0.1:3210/#/runs" aria-current="page"
             >Exécutions</a
           ><a href="http://127.0.0.1:3210/#/health">Notifications</a>
@@ -689,7 +690,7 @@
             <path
               d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"
             ></path></svg
-          ><b>Atlas</b> / Recette</span
+          ><b>Atlas</b></span
         >
       </div>
     </header>
@@ -801,7 +802,15 @@
               aria-controls="panel"
               tabindex="-1"
             >
-              Variables
+              Variables</button
+            ><button
+              role="tab"
+              id="entetes"
+              aria-controls="panel"
+              aria-selected="false"
+              tabindex="-1"
+            >
+              En-têtes
             </button>
           </div>
           <div id="panel" role="tabpanel" aria-labelledby="response">
@@ -858,10 +867,6 @@
               </div>
               <div class="code" id="code"></div>
             </div>
-            <details class="headers">
-              <summary>En-têtes HTTP</summary>
-              <dl id="headers"></dl>
-            </details>
           </div>
           <section class="goal">
             <svg
@@ -948,6 +953,13 @@
         request: { label: "POST /v1/requests", body: null, headers: {} },
         variables: { label: "Variables résolues", body: {}, headers: null },
       };
+      views.entetes = {
+        label: "En-têtes HTTP",
+        body: {
+          Réponse: views.response.headers,
+          Requête: views.request.headers,
+        },
+      };
       const tabs = [...document.querySelectorAll("[role=tab]")];
       let selected = "response";
       function show(id) {
@@ -983,20 +995,6 @@
           row.append(number, content);
           code.append(row);
         });
-        const details = document.querySelector(".headers"),
-          headers = document.querySelector("#headers");
-        headers.replaceChildren();
-        details.open = false;
-        details.hidden = !view.headers;
-        for (const [name, value] of Object.entries(view.headers || {})) {
-          const dt = document.createElement("dt"),
-            dd = document.createElement("dd");
-          dt.textContent = name;
-          dd.textContent = value;
-          headers.append(dt, dd);
-        }
-        if (view.headers && !Object.keys(view.headers).length)
-          headers.textContent = "Aucun en-tête conservé.";
         document.querySelector("#copy-body").hidden = view.body === null;
       }
       tabs.forEach((tab, index) => {

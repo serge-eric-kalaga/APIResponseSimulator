@@ -804,6 +804,7 @@
         }
       }
     </style>
+    <link rel="stylesheet" href="menu.css" />
   </head>
   <body>
     <header class="bar">
@@ -1000,12 +1001,6 @@
               >Service<select id="service">
                 <option value="">Tous</option>
               </select></label
-            ><label
-              >Environnement<select id="environment">
-                <option value="">Tous</option>
-                <option>Recette</option>
-                <option>Intégration</option>
-              </select></label
             ><button data-action="reset">Réinitialiser</button>
           </div>
           <div class="rows" id="rows"></div>
@@ -1059,7 +1054,7 @@
           method: "POST",
           route: "/v1/requests",
           project: "Atlas",
-          env: "Recette",
+
           service: "Traitements",
           state: "Active",
           version: 1,
@@ -1074,7 +1069,7 @@
           method: "POST",
           route: "/v1/documents",
           project: "Studio",
-          env: "Recette",
+
           service: "Documents",
           state: "Active",
           version: 2,
@@ -1091,7 +1086,7 @@
           method: "POST",
           route: "/v1/resources",
           project: "Atlas",
-          env: "Recette",
+
           service: "Ressources",
           state: "Active",
           version: 1,
@@ -1105,7 +1100,7 @@
           method: "POST",
           route: "/v1/requests",
           project: "Atlas",
-          env: "Intégration",
+
           service: "Traitements",
           state: "Brouillon",
           version: 0,
@@ -1119,7 +1114,7 @@
           method: "GET",
           route: "/v1/documents/status",
           project: "Studio",
-          env: "Intégration",
+
           service: "Documents",
           state: "Archivée",
           version: 1,
@@ -1206,15 +1201,12 @@
             matchesAccess(i, access) &&
             (!$("state").value || i.state === $("state").value) &&
             (!$("service").value || i.service === $("service").value) &&
-            (!$("environment").value || i.env === $("environment").value) &&
             normal(
               [i.name, i.route, i.project, i.service, i.tags || ""].join(" "),
             ).includes(q),
         );
         if (!visible.some((i) => i.id === selected)) selected = visible[0]?.id;
-        const filters = ["state", "service", "environment"].filter(
-          (k) => $(k).value,
-        ).length;
+        const filters = ["state", "service"].filter((k) => $(k).value).length;
         $("toggleFilters").querySelector("span").textContent = filters
           ? "Filtres · " + filters
           : "Filtres";
@@ -1236,8 +1228,6 @@
                 esc(i.route) +
                 '</code></span><span class="rowContext">' +
                 esc(i.project) +
-                " / " +
-                esc(i.env) +
                 (i.shared ? " · Lecture partagée" : "") +
                 "</span></span>" +
                 stateBadge(i) +
@@ -1313,8 +1303,6 @@
             '</h3><div class="context">' +
             icons.folder +
             esc(i.project) +
-            " / " +
-            esc(i.env) +
             '</div><div class="payload"><div class="file"><span>application/json</span><span class="http ' +
             (i.http < 400 ? "ok" : "") +
             '">HTTP ' +
@@ -1335,13 +1323,7 @@
         $("mobilePreview").firstElementChild.innerHTML = content;
       }
       function reset() {
-        for (const k of [
-          "project",
-          "search",
-          "state",
-          "service",
-          "environment",
-        ])
+        for (const k of ["project", "search", "state", "service"])
           $(k).value = "";
         access = "Toutes";
         openedMenu = null;
@@ -1363,8 +1345,7 @@
         };
         $("modal").showModal();
       }
-      const itemLabel = (i) =>
-        esc(i.name) + " · " + esc(i.project) + " / " + esc(i.env);
+      const itemLabel = (i) => esc(i.name) + " · " + esc(i.project);
       function action(key, i) {
         if (key === "reset") {
           reset();
@@ -1410,7 +1391,7 @@
             name: i.name + " · copie",
             shared: false,
             project: "Atlas",
-            env: "Recette",
+
             state: "Brouillon",
             version: 0,
             runs: 0,
@@ -1516,7 +1497,7 @@
               method: "POST",
               version: 0,
               project: "Atlas",
-              env: "Recette",
+
               service: "Traitements",
               http: 200,
               body: {},
@@ -1547,7 +1528,7 @@
             draw();
           }),
       );
-      for (const k of ["project", "state", "service", "environment"])
+      for (const k of ["project", "state", "service"])
         $(k).onchange = () => {
           openedMenu = null;
           draw();
