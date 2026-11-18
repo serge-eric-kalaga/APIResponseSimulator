@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { insertVariable, indentJson } from "./insert-variable";
 import { Block, Variables, Field } from "./editor-fields";
 import {
   ArrowLeft,
@@ -101,25 +102,32 @@ export function Editor({
     const ref = destination === "body" ? bodyRef : hookRef,
       input = ref.current;
     if (!input) return;
-    const s = input.selectionStart,
-      e = input.selectionEnd,
-      token = "{{" + name + "}}";
-    const value = d[destination];
-    const inString =
-      (value.slice(0, s).match(/(?<!\\)"/g) || []).length % 2 === 1;
-    const text =
-      inString || (destination === "body" && d.contentType === "text/plain")
-        ? token
-        : JSON.stringify(token);
-    edit(destination, value.slice(0, s) + text + value.slice(e));
-    input.focus();
-    requestAnimationFrame(() =>
-      input.setSelectionRange(s + text.length, s + text.length),
-    );
+    const kind =
+      destination === "hookBody"
+        ? "json"
+        : d.contentType.endsWith("/xml")
+          ? "xml"
+          : d.contentType === "text/plain"
+            ? "text"
+            : "json";
+    try {
+      const { body, cursor } = insertVariable(
+        d[destination],
+        name,
+        input.selectionStart,
+        input.selectionEnd,
+        kind,
+      );
+      edit(destination, body);
+      input.focus();
+      requestAnimationFrame(() => input.setSelectionRange(cursor, cursor));
+    } catch (e) {
+      setIssue({ field: destination, message: (e as Error).message });
+    }
   }
   function format(k: "body" | "hookBody") {
     try {
-      edit(k, pretty(JSON.parse(d[k])));
+      edit(k, indentJson(d[k]));
     } catch (e) {
       setIssue({ field: k, message: (e as Error).message });
     }
@@ -185,9 +193,11 @@ export function Editor({
         />
       </Field>
       <div className="inline">
-        <button className="textBtn" type="button" onClick={() => format(k)}>
-          Indenter le JSON
-        </button>
+        {(k === "hookBody" || d.contentType.includes("json")) && (
+          <button className="textBtn" type="button" onClick={() => format(k)}>
+            Indenter le JSON
+          </button>
+        )}
         {d.variables.length > 0 && (
           <select
             aria-label={"Insérer une variable dans " + label}
@@ -365,14 +375,27 @@ export function Editor({
               <Field label="Type de contenu">
                 <select
                   value={d.contentType}
-                  onChange={(e) =>
-                    edit("contentType", e.target.value as Draft["contentType"])
-                  }
+                  onChange={(e) => {
+                    const contentType = e.target.value as Draft["contentType"];
+                    const initial =
+                      d.body === blank(d.project).body || !d.body.trim();
+                    set({
+                      ...d,
+                      contentType,
+                      body:
+                        initial && contentType.endsWith("/xml")
+                          ? "<reponse>OK</reponse>"
+                          : d.body,
+                    });
+                    setDirty(true);
+                  }}
                 >
                   {[
                     "application/json",
                     "application/problem+json",
                     "text/plain",
+                    "application/xml",
+                    "text/xml",
                   ].map((s) => (
                     <option key={s}>{s}</option>
                   ))}
@@ -520,7 +543,7 @@ export function Editor({
                 <pre>
                   {preview.body === null
                     ? "(sans corps)"
-                    : d.contentType === "text/plain"
+                    : !d.contentType.includes("json")
                       ? preview.body
                       : pretty(JSON.parse(preview.body))}
                 </pre>

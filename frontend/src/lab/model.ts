@@ -1,4 +1,5 @@
 /** Shared contract for the browser preview, publication and HTTP runtime. */
+import { renderXml } from "./xml.ts";
 import { z } from "zod";
 
 export const methods = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
@@ -36,6 +37,8 @@ export const draftSchema = z.object({
     "application/json",
     "application/problem+json",
     "text/plain",
+    "application/xml",
+    "text/xml",
   ]),
   noBody: z.boolean(),
   body: z.string().max(32768),
@@ -179,6 +182,7 @@ function render(
   vars: Record<string, Value>,
   field: string,
   plain = false,
+  xml = false,
 ): string {
   // Enforce an expansion budget before concatenating repeated references.
   let expansion = 0;
@@ -205,9 +209,19 @@ function render(
       );
     return value;
   }
-  const rendered = plain
-    ? String(visit(raw, 0))
-    : JSON.stringify(visit(parse(raw, field), 0));
+  let xmlBody: string | undefined;
+  if (xml) {
+    try {
+      xmlBody = renderXml(raw, lookup);
+    } catch (e) {
+      fail(field, "XML invalide. " + (e as Error).message);
+    }
+  }
+  const rendered =
+    xmlBody ??
+    (plain
+      ? String(visit(raw, 0))
+      : JSON.stringify(visit(parse(raw, field), 0)));
   if (new TextEncoder().encode(rendered).length > 65536)
     fail(field, "Corps résolu supérieur à 64 Kio.");
   return rendered;
@@ -261,7 +275,13 @@ export function compile(d: Draft, input: Record<string, unknown> = {}) {
   }
   const body = d.noBody
     ? null
-    : render(d.body, variables, "body", d.contentType === "text/plain");
+    : render(
+        d.body,
+        variables,
+        "body",
+        d.contentType === "text/plain",
+        d.contentType.endsWith("/xml"),
+      );
   const headers = headerMap(d.headers, "headers");
   if (
     d.webhook &&
