@@ -2,6 +2,8 @@
 
 Relais remplace une dépendance HTTP en recette. Chaque appel conforme sélectionne une version publiée, résout ses variables et conserve une trace. Un webhook facultatif peut partir après la réponse, y compris lorsque celle-ci est une erreur HTTP.
 
+![Bibliothèque Relais avec les quatre scénarios du pilote](docs/bibliotheque.png)
+
 ## Démarrer sur son poste
 
 Avec Node.js 24, depuis la racine du dépôt, lancer les commandes suivantes.

@@ -20,7 +20,7 @@ Après confirmation du premier HTTP 204, le client de recette a demandé une ré
 - Les tests du moteur vérifient le type JSON des champs, les générateurs, les valeurs par défaut, l’absence de retraitement des valeurs et les erreurs de validation.
 - Les tests de persistance vérifient l’isolation entre projets, les publications stables, l’archivage, le masquage, le quota de tentatives et l’annulation transactionnelle de l’exécution si la file échoue.
 - Les tests du worker utilisent deux connexions SQLite indépendantes, une fermeture puis une réouverture du fichier, un bail expiré, une réponse 503, des refus permanents, une révocation de destination et une annulation.
-- Le parcours automatisé sous Chrome couvre la connexion, les filtres, la sauvegarde d’un brouillon invalide, sa reprise après rechargement, la publication, l’exécution, la copie cURL et du résumé, la duplication, l’archivage et la navigation à 375 px.
+- Le parcours automatisé sous Chrome couvre la connexion, les filtres, l’insertion visuelle d’un entier, l’aperçu sans appels API, la sauvegarde d’un brouillon invalide, sa reprise après rechargement, la publication, l’exécution, la copie cURL et du résumé, la duplication, l’archivage et la navigation à 375 px.
 - L’image Docker a été construite et lancée dans un projet Compose isolé. Le contrôle de santé, la connexion, les quatre scénarios initiaux, le signal du worker et le déclenchement HTTP 400 ont été vérifiés.
 
 Pour une intégration réelle, fournir ses contrats de test, le SHA de l’application appelante et son résultat attendu. La recette ci-dessus documente uniquement le comportement du pilote et du récepteur fictif.

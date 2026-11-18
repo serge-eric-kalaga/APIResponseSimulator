@@ -73,6 +73,36 @@ try {
   await expect(page.locator(".rowTitle")).toHaveCount(1);
   await page.getByRole("link", { name: "Nouvelle simulation" }).click();
   await page.getByLabel("Nom de la simulation").fill("Recette navigateur");
+  // A visual insertion must preserve the numeric type and the preview must stay offline.
+  const previewRequests = [];
+  const watchPreview = (req) => {
+    if (req.url().includes("/api/lab/")) previewRequests.push(req.method());
+  };
+  page.on("request", watchPreview);
+  await page.getByRole("button", { name: "Ajouter", exact: true }).click();
+  await page.getByLabel("Nom de variable").fill("quantite");
+  await page.getByLabel("Type JSON").selectOption("integer");
+  await page.getByLabel("Mode", { exact: true }).selectOption("fixed");
+  await page.getByLabel("Valeur fixe").fill("3");
+  const editor = page.getByLabel("Corps de la réponse", { exact: true });
+  await editor.fill('{"quantite":null}');
+  await editor.evaluate((el) => el.setSelectionRange(12, 16));
+  await page
+    .getByLabel("Insérer une variable dans Corps de la réponse")
+    .selectOption("quantite");
+  await expect(page.locator(".codePanel")).toContainText('"quantite": 3');
+  await page
+    .getByRole("button", { name: "Indenter le JSON", exact: true })
+    .click();
+  await expect(editor).toHaveValue(/\n/);
+  await page.getByLabel("Sans corps", { exact: true }).check();
+  await page.getByLabel("Statut HTTP").fill("204");
+  await expect(page.locator(".codePanel")).toContainText("(sans corps)");
+  await page.getByLabel("Sans corps", { exact: true }).uncheck();
+  await page.getByRole("button", { name: "200", exact: true }).click();
+  page.off("request", watchPreview);
+  if (previewRequests.length)
+    throw Error("La prévisualisation a effectué un appel API.");
   await page.getByLabel("Corps de la réponse", { exact: true }).fill("{");
   await page.getByRole("button", { name: "Publier une version" }).click();
   await expect(page.locator(".editorForm .error")).toContainText(
