@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Notifications · Maquette Relais</title>
+    <link rel="stylesheet" href="suivi.css" />
+    <script type="module" src="health.js"></script>
+  </head>
+  <body>
+    <main id="contenu">
+      <header class="page-head">
+        <div class="crumb">
+          Console <i data-icon="ChevronRight"></i> Notifications
+        </div>
+        <h1>Notifications</h1>
+      </header>
+      <section aria-labelledby="service-title">
+        <div class="section-heading">
+          <h2 id="service-title">État technique</h2>
+          <span class="context">Tous les projets autorisés</span>
+        </div>
+        <div class="worker-grid">
+          <div class="worker">
+            <div class="worker-top">
+              <i data-icon="Activity"></i><span>Worker de livraison</span>
+            </div>
+            <strong><b class="light"></b> En ligne</strong>
+            <div class="heartbeat">
+              <span>Dernier signal</span><time>18 nov. · 09:43:12 UTC</time>
+            </div>
+          </div>
+          <dl class="monitor">
+            <div>
+              <dt><i data-icon="Timer"></i> Retard de la file</dt>
+              <dd>0,4 <small>s</small></dd>
+            </div>
+            <div>
+              <dt><i data-icon="Settings2"></i> Erreurs de configuration</dt>
+              <dd>0</dd>
+            </div>
+            <div>
+              <dt>
+                <i data-icon="CircleCheck"></i> Taux de livraison<small
+                  >Sur les 50 envois terminés</small
+                >
+              </dt>
+              <dd>98 <small>%</small></dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+      <section class="deliveries" aria-labelledby="deliveries-title">
+        <div class="section-heading">
+          <h2 id="deliveries-title">Livraisons</h2>
+        </div>
+        <dl class="metrics">
+          <div>
+            <dt><b class="dot amber"></b> En attente</dt>
+            <dd>2</dd>
+          </div>
+          <div>
+            <dt><b class="dot green"></b> Livrées</dt>
+            <dd>49</dd>
+          </div>
+          <div>
+            <dt><b class="dot red"></b> En échec</dt>
+            <dd>1</dd>
+          </div>
+        </dl>
+      </section>
+      <section aria-labelledby="dest-title" class="destinations">
+        <div class="section-heading">
+          <h2 id="dest-title">URL de réception</h2>
+        </div>
+        <div class="tabs" role="tablist" aria-label="URL de réception">
+          <button role="tab" id="allowed" aria-controls="allowed-panel">
+            Destinations autorisées</button
+          ><button role="tab" id="review" aria-controls="review-panel">
+            Autorisations <span id="pending"></span>
+          </button>
+        </div>
+        <div role="tabpanel" aria-labelledby="allowed" id="allowed-panel"></div>
+        <div
+          role="tabpanel"
+          aria-labelledby="review"
+          id="review-panel"
+          hidden
+        ></div>
+      </section>
+      <dialog id="confirm">
+        <button class="close" aria-label="Fermer"><i data-icon="X"></i></button>
+        <h2></h2>
+        <p></p>
+        <code></code>
+        <div class="actions">
+          <button id="cancel">Annuler</button
+          ><button id="apply" class="primary"></button>
+        </div>
+      </dialog>
+      <p id="notice" class="notice" role="status"></p>
+    </main>
+  </body>
+</html>
