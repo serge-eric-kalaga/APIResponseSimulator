@@ -1,12 +1,9 @@
 /** Dedicated loopback-only QA dependency. Record receipt by idempotency key, without payload logs. */
 import { createServer } from "node:http";
-import { openDatabase } from "../src/lab/server/db.mjs";
+import { receiverStore, receive } from "../src/lab/server/pilot-receipts.mjs";
 import { resolve } from "node:path";
-const db = openDatabase(
+const db = receiverStore(
   process.env.RELAIS_RECEIVER_DB || resolve("../data/receiver.sqlite"),
-);
-db.exec(
-  "CREATE TABLE IF NOT EXISTS receipts(id TEXT PRIMARY KEY, reference TEXT, received INTEGER, calls INTEGER DEFAULT 1)",
 );
 createServer(async (req, res) => {
   if (req.method !== "POST" || req.url !== "/recette") {
@@ -30,17 +27,7 @@ createServer(async (req, res) => {
       chunks.push(chunk);
     }
     const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-    const ref =
-      typeof body?.reference === "string" &&
-      /^[a-f0-9-]{36}$/.test(body.reference)
-        ? body.reference
-        : null;
-    db.prepare("DELETE FROM receipts WHERE received<?").run(
-      Date.now() - 7 * 86400000,
-    );
-    db.prepare(
-      "INSERT INTO receipts(id,reference,received) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET calls=calls+1",
-    ).run(id, ref, Date.now());
+    receive(db, id, body);
     res.writeHead(204).end();
   } catch {
     res.writeHead(400).end();
