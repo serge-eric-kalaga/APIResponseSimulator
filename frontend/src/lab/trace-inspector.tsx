@@ -10,7 +10,7 @@ type View = {
   body: unknown;
   empty?: string;
   json: boolean;
-  headers?: Record<string, string>;
+  headers?: Record<string, Record<string, string>>;
 };
 
 function viewsFor({ trace: t, job }: Proof): View[] {
@@ -27,7 +27,6 @@ function viewsFor({ trace: t, job }: Proof): View[] {
       body: t.response,
       json,
       empty: hasResponse ? undefined : "Aucun corps servi",
-      headers: t.responseHeaders,
     },
     {
       name: "Requête",
@@ -35,7 +34,6 @@ function viewsFor({ trace: t, job }: Proof): View[] {
       body: t.incoming,
       json: true,
       empty: hasRequest ? undefined : "Aucun corps reçu",
-      headers: t.requestHeaders,
     },
     {
       name: "Variables",
@@ -44,13 +42,24 @@ function viewsFor({ trace: t, job }: Proof): View[] {
       json: true,
     },
   ];
+  const headers = {
+    Réponse: t.responseHeaders,
+    Requête: t.requestHeaders,
+    ...(job ? { Webhook: t.hookHeaders } : {}),
+  } as Record<string, Record<string, string>>;
+  views.push({
+    name: "En-têtes",
+    label: "En-têtes HTTP",
+    body: headers,
+    json: true,
+    headers,
+  });
   if (job)
     views.push({
       name: "Webhook",
       label: "Notification préparée",
       body: t.webhook,
       json: true,
-      headers: t.hookHeaders,
     });
   return views;
 }
@@ -86,7 +95,6 @@ export function TraceInspector({
     (view.json || typeof view.body !== "string"
       ? pretty(view.body)
       : view.body);
-  const entries = Object.entries(view.headers || {});
   return (
     <>
       <h2>Inspecteur HTTP</h2>
@@ -148,32 +156,37 @@ export function TraceInspector({
                     </button>
                   )}
                 </div>
-                <div className={s.code}>
-                  {text.split("\n").map((line, i) => (
-                    <div key={i} className={s.line}>
-                      <i aria-hidden="true">{i + 1}</i>
-                      <code>{view.json ? jsonLine(line) : line}</code>
-                    </div>
-                  ))}
-                </div>
+                {view.headers ? (
+                  <div className={s.headers}>
+                    {Object.entries(view.headers).map(([source, values]) => (
+                      <section key={source}>
+                        <h3>{source}</h3>
+                        {Object.keys(values).length ? (
+                          <dl>
+                            {Object.entries(values).map(([name, value]) => (
+                              <Fragment key={name}>
+                                <dt>{name}</dt>
+                                <dd>{value}</dd>
+                              </Fragment>
+                            ))}
+                          </dl>
+                        ) : (
+                          <p>Aucun en-tête conservé.</p>
+                        )}
+                      </section>
+                    ))}
+                  </div>
+                ) : (
+                  <div className={s.code}>
+                    {text.split("\n").map((line, i) => (
+                      <div key={i} className={s.line}>
+                        <i aria-hidden="true">{i + 1}</i>
+                        <code>{view.json ? jsonLine(line) : line}</code>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-              {view.headers && (
-                <details className={s.headers}>
-                  <summary>En-têtes HTTP</summary>
-                  {entries.length ? (
-                    <dl>
-                      {entries.map(([name, value]) => (
-                        <Fragment key={name}>
-                          <dt>{name}</dt>
-                          <dd>{value}</dd>
-                        </Fragment>
-                      ))}
-                    </dl>
-                  ) : (
-                    <p>Aucun en-tête conservé.</p>
-                  )}
-                </details>
-              )}
             </>
           )}
         </div>

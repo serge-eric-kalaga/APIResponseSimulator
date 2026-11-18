@@ -56,7 +56,8 @@ export async function exerciseTrace(context, origin, env) {
     await expect(
       page.locator("aside.sidebar nav a[aria-current=page]"),
     ).toHaveText("Exécutions");
-    await page.getByText("En-têtes HTTP", {exact:true}).click();
+    await tab("En-têtes").click();
+    await expect(panel.getByRole("heading", { name: "Requête" })).toBeVisible();
     await expect(
       panel.getByText("content-type", { exact: true }),
     ).toBeVisible();
@@ -101,6 +102,8 @@ export async function exerciseTrace(context, origin, env) {
     await page.goBack();
     await expect(tab("Réponse")).toBeVisible();
     const jobRun = await openRun("Génération de document", "");
+    await tab("En-têtes").click();
+    await expect(panel.getByRole("heading", { name: "Webhook" })).toBeVisible();
     await tab("Webhook").click();
     await expect(panel).toContainText("success");
     await tab("Requête").click();
