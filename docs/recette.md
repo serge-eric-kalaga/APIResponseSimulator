@@ -26,3 +26,11 @@ Une seconde passe sur la révision applicative `16588b99ee8d9b3da5219eef50759fd3
 - L’image Docker a été construite et lancée dans un projet Compose isolé. Le contrôle de santé, la connexion, les quatre scénarios initiaux, le signal du worker et le déclenchement HTTP 400 ont été vérifiés.
 
 Pour une intégration réelle, fournir ses contrats de test, le SHA de l’application appelante et son résultat attendu. La recette ci-dessus documente uniquement le comportement du pilote et du récepteur fictif.
+
+## Comptes personnels et partage
+
+La compilation locale de la révision applicative `a3221ba` a servi les quatre contrats de recette. Le récepteur a reçu le webhook à T+120,076 s. L’envoi et sa répétition ont obtenu HTTP 204 et produit une seule transition. [Trace du contrôle multi-comptes sur le pilote](http://127.0.0.1:3210/#/runs/6999fe75-e938-412c-8457-ec83c2c22b1e)
+
+Le parcours navigateur a utilisé trois comptes sur une base éphémère. Il a vérifié l’inscription, la création d’un projet et d’un environnement, la publication d’une réponse XML, l’enregistrement d’une URL de réception, le partage individuel, la duplication et la révocation. Un troisième compte a vu la simulation pendant la période de visibilité publique de son environnement. Une session anonyme a reçu HTTP 401 sur l’API. Deux insertions consécutives dans l’éditeur ont produit un objet JSON valide avec deux propriétés, et l’entier inséré a conservé son type dans l’aperçu.
+
+La suite de 23 tests vérifie aussi le cumul de deux partages sur la même simulation et la confidentialité du brouillon suivant une version publiée. Un contrôle HTTP distinct a confirmé la livraison au récepteur local après enregistrement de son URL dans un environnement nouvellement créé.

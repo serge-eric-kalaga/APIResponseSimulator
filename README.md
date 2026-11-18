@@ -31,6 +31,8 @@ Le volume nommé `relais_data` conserve les données entre deux démarrages. Le 
 
 ## Partager sur la même instance
 
+Sur plusieurs postes, les utilisateurs doivent ouvrir la même adresse de Relais. Pour héberger une instance d’équipe, placer la console derrière un proxy HTTPS, définir `RELAIS_ORIGIN` sur l’origine HTTPS exacte et conserver le volume de données. Les liens copiés depuis cette adresse ouvrent les ressources sur cette instance.
+
 Dans **Projets et environnements**, choisir **Partager** sur un environnement. Dans l’éditeur, choisir **Partager la simulation** pour une seule simulation. Saisir l’adresse d’un utilisateur déjà inscrit, ou choisir **Public pour tous les utilisateurs connectés**. Le bouton **Copier le lien** permet de transmettre le lien interne. Le destinataire voit aussi les éléments dans sa bibliothèque, avec le filtre **Partagées avec moi**.
 
 Le partage donne la lecture et la duplication dans un projet personnel. Pour une simulation publiée, le destinataire voit la version active. Une simulation en brouillon partage sa configuration courante. Les historiques, les clés et les opérations de publication restent réservés aux membres du projet. Le partage d’un environnement s’applique aussi à ses futures simulations. Chaque source de droit se retire indépendamment. Les copies déjà faites appartiennent à leurs destinataires.
