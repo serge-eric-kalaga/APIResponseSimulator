@@ -15,6 +15,8 @@ La notification `4c044fac-91f9-4178-8b9c-32aebaaa8f73` a été programmée pour 
 
 Après confirmation du premier HTTP 204, le client de recette a demandé une répétition volontaire. Le récepteur a enregistré deux appels sous le même identifiant, deux accusés HTTP 204 et une seule transition de document. La vérification lit la base du récepteur indépendamment des traces du simulateur.
 
+Une seconde passe sur la révision applicative `16588b99ee8d9b3da5219eef50759fd3920c50d6` a confirmé les quatre contrats. La notification a été reçue à **T+120,214 s**. Les deux accusés ont été HTTP 204 et le récepteur a confirmé une seule transition. [Trace du second contrôle](http://127.0.0.1:3210/#/runs/0c07a339-5750-471c-9441-b8ba6950f04b)
+
 ## Vérifications reproductibles
 
 - Les tests du moteur vérifient le type JSON des champs, les générateurs, les valeurs par défaut, l’absence de retraitement des valeurs et les erreurs de validation.
