@@ -2,6 +2,7 @@ import { Fragment, useId, useRef, useState } from "react";
 import { Braces, Copy } from "lucide-react";
 import type { Proof } from "./client";
 import { pretty } from "./client";
+import { jsonLine } from "./json-line";
 import s from "./trace.module.css";
 
 type View = {
@@ -62,20 +63,6 @@ function viewsFor({ trace: t, job }: Proof): View[] {
       json: true,
     });
   return views;
-}
-
-/** Highlight the stored evidence as text. Raw request and response bodies never enter the DOM as markup. */
-function jsonLine(line: string) {
-  const parts = line.split(/("(?:\\.|[^"\\])*")/g);
-  return parts.map((part, i) =>
-    i % 2 === 0 ? (
-      part
-    ) : (
-      <span key={i} className={parts[i + 1]?.startsWith(":") ? s.key : s.val}>
-        {part}
-      </span>
-    ),
-  );
 }
 
 export function TraceInspector({

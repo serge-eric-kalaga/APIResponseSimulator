@@ -96,6 +96,31 @@ export async function exerciseTrace(context, origin, env) {
     await page.keyboard.press("Escape");
     await expect(menu).toBeFocused();
     await page.getByRole("link", { name: "Refus explicite" }).click();
+    // Inspect the active simulation at phone width without saving changes to the fixture.
+    await expect(tab("Réponse")).toHaveAttribute("aria-selected", "true");
+    await tab("Corps").focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByLabel("En-têtes JSON")).toBeVisible();
+    await tab("Corps").click();
+    await page
+      .getByLabel("Corps de la réponse", { exact: true })
+      .fill('{"mobile":true}');
+    const opener = page.getByRole("button", { name: "Aperçu", exact: true });
+    await opener.click();
+    const sheet = page.getByRole("dialog", { name: "Aperçu du brouillon" });
+    await expect(sheet).toContainText('"mobile": true');
+    await sheet.getByRole("button", { name: "Historique" }).click();
+    const history = page.getByRole("dialog", {
+      name: "Historique des publications",
+    });
+    await history.locator("summary").first().click();
+    await expect(history).toContainText("REQUEST_REJECTED");
+    await page.keyboard.press("Escape");
+    await expect(sheet).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(opener).toBeFocused();
+    await expect(page.locator("body")).toHaveJSProperty("scrollWidth", 320);
+    await tab("Paramètres").click();
     await expect(page.getByLabel("Nom de la simulation")).toHaveValue(
       "Refus explicite",
     );

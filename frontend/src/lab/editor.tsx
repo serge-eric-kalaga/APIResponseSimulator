@@ -1,24 +1,33 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { insertVariable, indentJson } from "./insert-variable";
-import { Block, Variables, Field } from "./editor-fields";
+import { appendVariable, Variables, Field } from "./editor-fields";
 import {
-  ArrowLeft,
   Braces,
-  Check,
-  Clipboard,
-  Code2,
-  GitBranch,
-  Play,
-  Radio,
-  Save,
-  Send,
+  ChevronRight,
+  Eye,
+  Settings2,
+  Upload,
+  Variable,
   Webhook,
 } from "lucide-react";
-import { blank, compile, FieldError, methods } from "./model";
+import { EditorTabs, EditorPanel, EditorDialog } from "./editor-controls";
+import { EditorSettings } from "./editor-settings";
+import { EditorPayload, type Part } from "./editor-payload";
+import { EditorPreview, previewText } from "./editor-preview";
+import s from "./editor.module.css";
+import { blank, compile, FieldError } from "./model";
 import type { Draft } from "./model";
-import { navigate, api, pretty, RequestError, urlFor, utc } from "./client";
+import { navigate, api, pretty, RequestError, utc } from "./client";
 import type { Item, Version, Workspace } from "./client";
+const sections = [
+  { id: "response", label: "Réponse", icon: <Braces size={16} /> },
+  { id: "variables", label: "Variables", icon: <Variable size={16} /> },
+  { id: "hook", label: "Webhook", icon: <Webhook size={16} /> },
+  { id: "settings", label: "Paramètres", icon: <Settings2 size={16} /> },
+] as const;
+type Section = (typeof sections)[number]["id"];
+
 const presets: Record<number, unknown> = {
   200: { ok: true },
   400: { code: "INVALID_REQUEST", message: "Paramètre invalide" },
@@ -54,24 +63,50 @@ export function Editor({
     [targetBody, setTargetBody] = useState<"body" | "hookBody">("body");
   const bodyRef = useRef<HTMLTextAreaElement>(null),
     hookRef = useRef<HTMLTextAreaElement>(null);
+  const [section, setSection] = useState<Section>(
+    item ? "response" : "settings",
+  );
+  const [responsePart, setResponsePart] = useState<Part>("body");
+  const [hookPart, setHookPart] = useState<Part>("body");
+  const [mobilePreview, setMobilePreview] = useState(false);
+  const [dialog, setDialog] = useState<"publish" | "history" | null>(null);
   const readOnly = !!item && !item.writable;
   const archived = !!item?.archived || readOnly;
   useEffect(() => {
-    if (item && item.writable)
+    let current = true;
+    if (item?.writable)
       api<Version[]>("versions/" + item.id)
-        .then(setVersions)
-        .catch((e) => notify(e.message));
-  }, [item?.id, active, notify]); // eslint-disable-line react-hooks/exhaustive-deps
+        .then((list) => {
+          if (current) setVersions(list);
+        })
+        .catch((e) => {
+          if (current) notify(e.message);
+        });
+    return () => {
+      current = false;
+    };
+  }, [item?.id, item?.writable, active, notify]);
+  useEffect(() => {
+    const wide = matchMedia("(min-width: 701px)");
+    const resize = () => {
+      if (wide.matches) setMobilePreview(false);
+    };
+    wide.addEventListener("change", resize);
+    return () => wide.removeEventListener("change", resize);
+  }, []);
   useEffect(() => {
     if (!dirty) return;
     const block = (e: BeforeUnloadEvent) => e.preventDefault();
     window.addEventListener("beforeunload", block);
     return () => window.removeEventListener("beforeunload", block);
   }, [dirty]);
-  function edit<K extends keyof Draft>(k: K, v: Draft[K]) {
-    set((prev) => ({ ...prev, [k]: v }));
+  function patch(changes: Partial<Draft>) {
+    set((prev) => ({ ...prev, ...changes }));
     setDirty(true);
     setIssue({ field: "", message: "" });
+  }
+  function edit<K extends keyof Draft>(key: K, value: Draft[K]) {
+    patch({ [key]: value });
   }
   const { preview, validation } = useMemo(() => {
     try {
@@ -90,6 +125,8 @@ export function Editor({
     const ref = destination === "body" ? bodyRef : hookRef,
       input = ref.current;
     if (!input) return;
+    setSection(destination === "body" ? "response" : "hook");
+    (destination === "body" ? setResponsePart : setHookPart)("body");
     const kind =
       destination === "hookBody"
         ? "json"
@@ -107,8 +144,10 @@ export function Editor({
         kind,
       );
       edit(destination, body);
-      input.focus();
-      requestAnimationFrame(() => input.setSelectionRange(cursor, cursor));
+      requestAnimationFrame(() => {
+        input.focus();
+        input.setSelectionRange(cursor, cursor);
+      });
     } catch (e) {
       setIssue({ field: destination, message: (e as Error).message });
     }
@@ -133,6 +172,29 @@ export function Editor({
     await refresh();
     edit("destination", r.id);
     return r;
+  }
+  function showIssue(field: string, message: string) {
+    const target = ["sha", "path", "name", "project"].includes(field)
+      ? "settings"
+      : field === "variables"
+        ? "variables"
+        : ["destination", "delay", "hookBody", "hookHeaders"].includes(field)
+          ? "hook"
+          : field === "save"
+            ? section
+            : "response";
+    setSection(target);
+    if (field === "headers" || field === "body") setResponsePart(field);
+    if (field === "hookHeaders" || field === "hookBody")
+      setHookPart(field === "hookHeaders" ? "headers" : "body");
+    setIssue({ field, message });
+    requestAnimationFrame(() =>
+      document
+        .querySelector<HTMLElement>(
+          "#panel-" + target + ' [aria-invalid="true"]',
+        )
+        ?.focus(),
+    );
   }
   async function persist(publish: boolean) {
     setBusy(true);
@@ -167,10 +229,7 @@ export function Editor({
       );
       if (!item) navigate("#/editor/" + s.id);
     } catch (e) {
-      setIssue({
-        field: (e as RequestError).field || "save",
-        message: (e as Error).message,
-      });
+      showIssue((e as RequestError).field || "save", (e as Error).message);
     } finally {
       setBusy(false);
     }
@@ -189,459 +248,436 @@ export function Editor({
       setBusy(false);
     }
   }
-  const activeD = versions[0]?.config;
-  const curl =
-    item && activeD
-      ? `curl -X ${activeD.method} '${urlFor(item.id, activeD.path)}' -H "X-Lab-Key: ${"$RELAIS_TEST_KEY"}"`
-      : "";
-  const area = (k: "body" | "hookBody", label: string) => (
-    <>
-      <Field label={label} error={err(k)}>
-        <textarea
-          ref={k === "body" ? bodyRef : hookRef}
-          className="codeInput"
-          rows={6}
-          value={d[k]}
-          onFocus={() => setTargetBody(k)}
-          onChange={(e) => edit(k, e.target.value)}
-        />
-      </Field>
-      <div className="inline">
-        {(k === "hookBody" || d.contentType.includes("json")) && (
-          <button className="textBtn" type="button" onClick={() => format(k)}>
-            Indenter le JSON
-          </button>
-        )}
-        {d.variables.length > 0 && (
-          <select
-            aria-label={"Insérer une variable dans " + label}
-            value=""
-            onChange={(e) => insert(e.target.value, k)}
-          >
-            <option value="">Insérer une variable…</option>
-            {d.variables.map((v, i) => (
-              <option key={i}>{v.name}</option>
-            ))}
-          </select>
-        )}
-      </div>
-    </>
+  const locked = archived || busy;
+  const state = readOnly
+    ? "Partagée en lecture"
+    : archived
+      ? "Simulation archivée"
+      : dirty
+        ? "Modifications non enregistrées"
+        : item
+          ? "Brouillon enregistré"
+          : "Brouillon local";
+  const payloadProps = {
+    draft: d,
+    disabled: locked,
+    edit,
+    insert,
+    indent: format,
+    err,
+    onBodyFocus: setTargetBody,
+    create: (k: "body" | "hookBody") => {
+      setTargetBody(k);
+      edit("variables", appendVariable(d.variables));
+      setSection("variables");
+    },
+  };
+  const rail = (
+    <EditorPreview
+      draft={d}
+      preview={preview}
+      error={validation?.message}
+      item={item}
+      version={versions.find((v) => v.number === active)}
+      active={active}
+      raw={raw}
+      setRaw={setRaw}
+      busy={busy}
+      run={run}
+      history={() => setDialog("history")}
+      notify={notify}
+      sheet={mobilePreview}
+    />
   );
   return (
-    <>
-      <a className="back" href="#/library">
-        <ArrowLeft size={15} />
-        Bibliothèque
-      </a>
-      <header className="pageheading">
+    <div className={s.workbench}>
+      <div className={s.crumb}>
+        <a href="#/library">Bibliothèque</a>
+        <ChevronRight size={13} /> Éditeur de simulation
+      </div>
+      <header className={s.hero}>
         <div>
-          <div className="eyeline">ÉDITEUR HTTP</div>
-          <h1>{item ? d.name || "Sans titre" : "Nouvelle simulation"}</h1>
-          <p role="status">
-            {readOnly
-              ? "Partagée en lecture"
-              : archived
-                ? "Simulation archivée"
-                : dirty
-                  ? "Modifications non enregistrées"
-                  : item
-                    ? "Brouillon enregistré"
-                    : "Brouillon local"}
-            {active ? " · Version active v" + active : ""}
-          </p>
+          <h1>
+            {d.name.trim() || (item ? "Sans titre" : "Nouvelle simulation")}
+          </h1>
+          <div className={s.route}>
+            <b>{d.method}</b>
+            <code>{d.path}</code>
+            {!!active && <span>·　v{active} active</span>}
+          </div>
         </div>
-        {!!item?.writable && (
-          <a className="btn" href={"#/sharing/simulation/" + item.id}>
-            Partager la simulation
-          </a>
-        )}
+        <div className={s.buttons}>
+          <button
+            className={"btn " + s.mobileEye}
+            onClick={() => setMobilePreview(true)}
+          >
+            <Eye />
+            Aperçu
+          </button>
+          {!archived && (
+            <>
+              <button
+                className="btn"
+                disabled={busy}
+                aria-label="Enregistrer le brouillon"
+                onClick={() => persist(false)}
+              >
+                Enregistrer
+              </button>
+              <button
+                className={"btn " + s.primary}
+                disabled={busy}
+                aria-label="Publier une version"
+                onClick={() =>
+                  validation
+                    ? showIssue(validation.field, validation.message)
+                    : setDialog("publish")
+                }
+              >
+                <Upload />
+                Publier
+              </button>
+            </>
+          )}
+        </div>
       </header>
-      <div className="editorLayout">
-        <fieldset disabled={archived || busy} className="editorForm">
-          <Block icon={GitBranch} title="Déclencheur">
-            <div className="formgrid">
-              <Field label="Nom de la simulation" error={err("name")}>
-                <input
-                  value={d.name}
-                  onChange={(e) => edit("name", e.target.value)}
-                />
-              </Field>
-              <Field label="Projet">
-                <select
-                  disabled={!!item}
-                  value={d.project}
-                  onChange={(e) => {
-                    set({
-                      ...d,
-                      project: e.target.value,
-                      destination: "",
-                    });
-                    setDirty(true);
-                  }}
-                >
-                  {(readOnly ? [d.project] : ws.user.projects).map((p) => (
-                    <option key={p}>{p}</option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Service simulé">
-                <input
-                  value={d.service}
-                  onChange={(e) => edit("service", e.target.value)}
-                />
-              </Field>
-              <Field label="Tags (séparés par des virgules)">
-                <input
-                  value={d.tags.join(",")}
-                  onChange={(e) =>
-                    edit("tags", e.target.value.split(",").slice(0, 20))
-                  }
-                />
-              </Field>
-            </div>
-            <Field label="Description">
-              <input
-                value={d.description}
-                onChange={(e) => edit("description", e.target.value)}
-              />
-            </Field>
-            <div className="formgrid routeFields">
-              <Field label="Méthode">
-                <select
-                  value={d.method}
-                  onChange={(e) =>
-                    edit("method", e.target.value as Draft["method"])
-                  }
-                >
-                  {methods.map((m) => (
-                    <option key={m}>{m}</option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Chemin exact" error={err("path")}>
-                <input
-                  value={d.path}
-                  onChange={(e) => edit("path", e.target.value)}
-                />
-              </Field>
-            </div>
-          </Block>
-          <Block icon={Braces} title="Réponse immédiate">
-            <div className="presets">
-              {Object.keys(presets).map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => {
-                    set({
-                      ...d,
-                      status: +n,
-                      noBody: false,
-                      body: pretty(presets[+n]),
-                      contentType: "application/json",
-                    });
-                    setDirty(true);
-                  }}
-                >
-                  {n}
-                </button>
-              ))}
-            </div>
-            <div className="formgrid">
-              <Field label="Statut HTTP" error={err("status")}>
-                <input
-                  type="number"
-                  value={d.status}
-                  onChange={(e) => edit("status", Number(e.target.value))}
-                />
-              </Field>
-              <Field label="Type de contenu">
-                <select
-                  value={d.contentType}
-                  onChange={(e) => {
-                    const contentType = e.target.value as Draft["contentType"];
-                    const initial =
-                      d.body === blank(d.project).body || !d.body.trim();
-                    set({
-                      ...d,
-                      contentType,
-                      body:
-                        initial && contentType.endsWith("/xml")
-                          ? "<reponse>OK</reponse>"
-                          : d.body,
-                    });
-                    setDirty(true);
-                  }}
-                >
-                  {[
-                    "application/json",
-                    "application/problem+json",
-                    "text/plain",
-                    "application/xml",
-                    "text/xml",
-                  ].map((s) => (
-                    <option key={s}>{s}</option>
-                  ))}
-                </select>
-              </Field>
-            </div>
-            <label className="check">
-              <input
-                type="checkbox"
-                checked={d.noBody}
-                onChange={(e) => edit("noBody", e.target.checked)}
-              />
-              Sans corps
-            </label>
-            {err("noBody") && <p className="error">{err("noBody")}</p>}
-            {!d.noBody && area("body", "Corps de la réponse")}
-            <details open={err("headers") ? true : undefined}>
-              <summary>En-têtes de réponse</summary>
-              <Field label="En-têtes JSON" error={err("headers")}>
-                <textarea
-                  value={d.headers}
-                  onChange={(e) => edit("headers", e.target.value)}
-                />
-              </Field>
-            </details>
-            <Variables
-              list={d.variables}
-              update={(list) => edit("variables", list)}
-              insert={insert}
-            />
-            {err("variables") && <p className="error">{err("variables")}</p>}
-          </Block>
-          <Block icon={Webhook} title="Webhook différé">
-            <label className="check">
-              <input
-                type="checkbox"
-                checked={d.webhook}
-                onChange={(e) => edit("webhook", e.target.checked)}
-              />
-              Programmer une notification POST
-            </label>
-            {d.webhook && (
-              <>
-                <Field label="URL de réception" error={err("destination")}>
+      <EditorTabs
+        tabs={sections}
+        label="Configuration de la simulation"
+        value={section}
+        select={setSection}
+      />
+      <div className={s.grid}>
+        <div>
+          <div className={s.sectionHead}>
+            <h2>
+              {
+                {
+                  response: "Réponse immédiate",
+                  settings: "Paramètres de la simulation",
+                  variables: "Variables typées",
+                  hook: "Webhook différé",
+                }[section]
+              }
+            </h2>
+            <span role="status" className={dirty ? s.dirty : s.muted}>
+              {state}
+            </span>
+          </div>
+          <EditorPanel id="response" selected={section}>
+            <fieldset disabled={locked}>
+              <div className="formgrid">
+                <Field label="Statut HTTP" error={err("status")}>
                   <input
-                    type="url"
-                    placeholder="https://recette.exemple.fr/webhooks"
-                    value={selectedReceiver?.url || d.destination}
-                    onChange={(e) =>
-                      edit(
-                        "destination",
-                        receivers.find((r) => r.url === e.target.value)?.id ||
-                          e.target.value,
-                      )
-                    }
+                    type="number"
+                    value={d.status}
+                    onChange={(e) => edit("status", Number(e.target.value))}
                   />
                 </Field>
-                {selectedReceiver ? (
-                  <p className="receiverState">
-                    {selectedReceiver.status === "active"
-                      ? "URL autorisée"
-                      : selectedReceiver.status === "pending"
-                        ? "Autorisation en attente"
-                        : "Autorisation retirée"}
-                  </p>
-                ) : (
-                  <button
-                    className="btn small"
-                    disabled={!d.destination || busy}
-                    onClick={async () => {
-                      setBusy(true);
-                      try {
-                        const r = await registerUrl();
-                        notify(
-                          r.status === "active"
-                            ? "URL autorisée."
-                            : "URL enregistrée. Validation disponible dans Notifications pour l’administrateur.",
-                        );
-                      } catch (e) {
-                        setIssue({
-                          field: "destination",
-                          message: (e as Error).message,
-                        });
-                      } finally {
-                        setBusy(false);
-                      }
+                <Field label="Type de contenu">
+                  <select
+                    value={d.contentType}
+                    onChange={(e) => {
+                      const contentType = e.target
+                        .value as Draft["contentType"];
+                      const initial =
+                        d.body === blank(d.project).body || !d.body.trim();
+                      patch({
+                        contentType,
+                        body:
+                          initial && contentType.endsWith("/xml")
+                            ? "<reponse>OK</reponse>"
+                            : d.body,
+                      });
                     }}
                   >
-                    Enregistrer l’URL
-                  </button>
-                )}
-                <Field label="Destination autorisée">
-                  <select
-                    value={
-                      selectedReceiver?.status === "active"
-                        ? selectedReceiver.id
-                        : ""
-                    }
-                    onChange={(e) => edit("destination", e.target.value)}
-                  >
-                    <option value="">Sélectionner une destination</option>
-                    {receivers
-                      .filter((x) => x.status === "active")
-                      .map((x) => (
-                        <option key={x.id} value={x.id}>
-                          {x.label}
-                        </option>
-                      ))}
+                    {[
+                      "application/json",
+                      "application/problem+json",
+                      "text/plain",
+                      "application/xml",
+                      "text/xml",
+                    ].map((s) => (
+                      <option key={s}>{s}</option>
+                    ))}
                   </select>
                 </Field>
-                <div className="formgrid">
-                  <Field label="Délai" error={err("delay")}>
+              </div>
+            </fieldset>
+            <EditorPayload
+              {...payloadProps}
+              target="body"
+              part={responsePart}
+              selectPart={setResponsePart}
+              bodyRef={bodyRef}
+            />
+            <fieldset disabled={locked}>
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={d.noBody}
+                  aria-invalid={!!err("noBody")}
+                  aria-describedby={err("noBody") ? "no-body-error" : undefined}
+                  onChange={(e) => edit("noBody", e.target.checked)}
+                />
+                Sans corps de réponse
+              </label>
+              {err("noBody") && (
+                <p id="no-body-error" role="alert" className="error">
+                  {err("noBody")}
+                </p>
+              )}
+
+              <details className={s.more}>
+                <summary>Modèles de réponse</summary>
+                <div className="presets">
+                  {Object.keys(presets).map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => {
+                        patch({
+                          status: +n,
+                          noBody: false,
+                          body: pretty(presets[+n]),
+                          contentType: "application/json",
+                        });
+                      }}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </details>
+            </fieldset>
+          </EditorPanel>
+          <EditorPanel id="variables" selected={section}>
+            <fieldset disabled={locked}>
+              <Variables
+                list={d.variables}
+                update={(list) => edit("variables", list)}
+                insert={(name) => {
+                  const target =
+                    targetBody === "hookBody" && d.webhook
+                      ? "hookBody"
+                      : "body";
+                  if (target === "body" && d.noBody) {
+                    showIssue(
+                      "noBody",
+                      "Activez le corps de réponse pour insérer la variable.",
+                    );
+                    return;
+                  }
+                  insert(name, target);
+                }}
+              />
+              {err("variables") && (
+                <p className="error" role="alert">
+                  {err("variables")}
+                </p>
+              )}
+            </fieldset>
+          </EditorPanel>
+          <EditorPanel id="hook" selected={section}>
+            <fieldset disabled={locked}>
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={d.webhook}
+                  onChange={(e) => edit("webhook", e.target.checked)}
+                />
+                Programmer une notification POST
+              </label>
+              {d.webhook && (
+                <>
+                  <Field label="URL de réception" error={err("destination")}>
                     <input
-                      type="number"
-                      min="0"
-                      value={d.delay / (minutes ? 60 : 1)}
+                      type="url"
+                      placeholder="https://recette.exemple.fr/webhooks"
+                      value={selectedReceiver?.url || d.destination}
                       onChange={(e) =>
                         edit(
-                          "delay",
-                          Number(e.target.value) * (minutes ? 60 : 1),
+                          "destination",
+                          receivers.find((r) => r.url === e.target.value)?.id ||
+                            e.target.value,
                         )
                       }
                     />
                   </Field>
-                  <Field label="Unité">
-                    <select
-                      value={minutes ? "min" : "s"}
-                      onChange={(e) => setMinutes(e.target.value === "min")}
+                  {selectedReceiver ? (
+                    <p className="receiverState">
+                      {selectedReceiver.status === "active"
+                        ? "URL autorisée"
+                        : selectedReceiver.status === "pending"
+                          ? "Autorisation en attente"
+                          : "Autorisation retirée"}
+                    </p>
+                  ) : (
+                    <button
+                      className="btn small"
+                      disabled={!d.destination || busy}
+                      onClick={async () => {
+                        setBusy(true);
+                        try {
+                          const r = await registerUrl();
+                          notify(
+                            r.status === "active"
+                              ? "URL autorisée."
+                              : "URL enregistrée. Validation disponible dans Notifications pour l’administrateur.",
+                          );
+                        } catch (e) {
+                          setIssue({
+                            field: "destination",
+                            message: (e as Error).message,
+                          });
+                        } finally {
+                          setBusy(false);
+                        }
+                      }}
                     >
-                      <option value="s">Secondes</option>
-                      <option value="min">Minutes</option>
+                      Enregistrer l’URL
+                    </button>
+                  )}
+                  <Field label="Destination autorisée">
+                    <select
+                      value={
+                        selectedReceiver?.status === "active"
+                          ? selectedReceiver.id
+                          : ""
+                      }
+                      onChange={(e) => edit("destination", e.target.value)}
+                    >
+                      <option value="">Sélectionner une destination</option>
+                      {receivers
+                        .filter((x) => x.status === "active")
+                        .map((x) => (
+                          <option key={x.id} value={x.id}>
+                            {x.label}
+                          </option>
+                        ))}
                     </select>
                   </Field>
-                </div>
-                {area("hookBody", "Corps du webhook")}
-                <details open={err("hookHeaders") ? true : undefined}>
-                  <summary>En-têtes du webhook</summary>
-                  <Field label="En-têtes POST" error={err("hookHeaders")}>
-                    <textarea
-                      value={d.hookHeaders}
-                      onChange={(e) => edit("hookHeaders", e.target.value)}
-                    />
-                  </Field>
-                </details>
-              </>
-            )}
-          </Block>
-          <details className="panel block">
-            <summary>Preuves de recette</summary>
-            <Field label="Résultat attendu dans l’application testée">
-              <textarea
-                value={d.expected}
-                onChange={(e) => edit("expected", e.target.value)}
-              />
-            </Field>
-            <Field label="SHA du code testé" error={err("sha")}>
-              <input
-                value={d.sha}
-                onChange={(e) => edit("sha", e.target.value)}
-              />
-            </Field>
-          </details>
-          {issue.message && (
-            <p className="error" role="alert">
-              {issue.message}
-            </p>
-          )}
-          <div className="actions">
-            <button className="btn" onClick={() => persist(false)}>
-              <Save />
-              Enregistrer le brouillon
-            </button>
-            <button className="btn primary" onClick={() => persist(true)}>
-              <Send />
-              Publier une version
-            </button>
-          </div>
-        </fieldset>
-        <aside className="previewCol">
-          <section className="codePanel">
-            <div>
-              <Code2 size={17} />
-              Aperçu de la réponse
-            </div>
-            <small>EXEMPLE GÉNÉRÉ LOCALEMENT</small>
-            {preview ? (
-              <>
-                <b>HTTP {d.status}</b>
-                <pre>
-                  {[
-                    ...(d.noBody ? [] : ["Content-Type: " + d.contentType]),
-                    ...Object.entries(preview.headers).map(
-                      ([k, v]) => k + ": " + v,
-                    ),
-                  ].join("\n")}
-                </pre>
-                <pre>
-                  {preview.body === null
-                    ? "(sans corps)"
-                    : !d.contentType.includes("json")
-                      ? preview.body
-                      : pretty(JSON.parse(preview.body))}
-                </pre>
-              </>
-            ) : (
-              <p>{validation?.message}</p>
-            )}
-          </section>
-          {item && !!active && !archived && (
-            <section className="panel block">
-              <h2>
-                <Radio />
-                Point d’appel actif
-              </h2>
-              {activeD && (
-                <>
-                  <code className="wrap">{urlFor(item.id, activeD.path)}</code>
-                  <button
-                    className="btn small"
-                    onClick={() =>
-                      navigator.clipboard
-                        .writeText(curl)
-                        .then(() => notify("Commande cURL copiée."))
-                        .catch(() => notify("Copie indisponible."))
-                    }
-                  >
-                    <Clipboard />
-                    Copier le cURL
-                  </button>
+                  <div className="formgrid">
+                    <Field label="Délai" error={err("delay")}>
+                      <input
+                        type="number"
+                        min="0"
+                        value={d.delay / (minutes ? 60 : 1)}
+                        onChange={(e) =>
+                          edit(
+                            "delay",
+                            Number(e.target.value) * (minutes ? 60 : 1),
+                          )
+                        }
+                      />
+                    </Field>
+                    <Field label="Unité">
+                      <select
+                        value={minutes ? "min" : "s"}
+                        onChange={(e) => setMinutes(e.target.value === "min")}
+                      >
+                        <option value="s">Secondes</option>
+                        <option value="min">Minutes</option>
+                      </select>
+                    </Field>
+                  </div>
                 </>
               )}
-              <details>
-                <summary>Corps JSON de l’appel test</summary>
-                <textarea
-                  aria-label="Requête JSON de test"
-                  value={raw}
-                  onChange={(e) => setRaw(e.target.value)}
-                />
-              </details>
-              <button className="btn" disabled={busy} onClick={run}>
-                <Play />
-                Exécuter la version v{active}
-              </button>
-            </section>
-          )}
-          {versions.length > 0 && (
-            <section className="panel block">
-              <h2>
-                <Check />
-                Publications
-              </h2>
-              {versions.map((v) => (
-                <details key={v.number}>
-                  <summary>
-                    v{v.number} · {utc(v.published)}
-                  </summary>
-                  <pre>{pretty(v.config)}</pre>
-                </details>
-              ))}
-            </section>
-          )}
-        </aside>
+            </fieldset>
+            {d.webhook && (
+              <EditorPayload
+                {...payloadProps}
+                target="hookBody"
+                part={hookPart}
+                selectPart={setHookPart}
+                bodyRef={hookRef}
+              />
+            )}
+          </EditorPanel>
+          <EditorPanel id="settings" selected={section}>
+            <EditorSettings
+              draft={d}
+              locked={locked}
+              existing={!!item}
+              projects={readOnly ? [d.project] : ws.user.projects}
+              edit={edit}
+              err={err}
+              changeProject={(project) => patch({ project, destination: "" })}
+            />
+            {!!item?.writable && (
+              <a className="btn" href={"#/sharing/simulation/" + item.id}>
+                Partager la simulation
+              </a>
+            )}
+          </EditorPanel>
+          {issue.message &&
+            ![
+              "body",
+              "headers",
+              "hookHeaders",
+              "hookBody",
+              "variables",
+              "sha",
+              "path",
+              "name",
+              "delay",
+              "destination",
+              "status",
+              "noBody",
+            ].includes(issue.field) && (
+              <p className="error" role="alert">
+                {issue.message}
+              </p>
+            )}
+        </div>
+        <aside className={s.rail}>{!mobilePreview && rail}</aside>
       </div>
-    </>
+      {mobilePreview && (
+        <EditorDialog
+          title="Aperçu du brouillon"
+          sheet
+          close={() => setMobilePreview(false)}
+        >
+          {rail}
+        </EditorDialog>
+      )}
+      {dialog === "publish" && preview && (
+        <EditorDialog
+          title={"Publier la version v" + (active + 1)}
+          close={() => setDialog(null)}
+        >
+          <p className={s.route}>
+            <b>{d.method}</b>
+            <code>{d.path}</code> → HTTP {d.status}
+          </p>
+          <pre className={s.sample}>{previewText(d, preview.body)}</pre>
+          <button
+            className={"btn " + s.primary}
+            disabled={busy}
+            onClick={() => {
+              setDialog(null);
+              void persist(true);
+            }}
+          >
+            Confirmer la publication
+          </button>
+        </EditorDialog>
+      )}
+      {dialog === "history" && (
+        <EditorDialog
+          title="Historique des publications"
+          close={() => setDialog(null)}
+        >
+          {versions.map((v) => (
+            <details className={s.more} key={v.number}>
+              <summary>
+                v{v.number} · {utc(v.published)}
+              </summary>
+              <pre className={s.sample}>{pretty(v.config)}</pre>
+            </details>
+          ))}
+        </EditorDialog>
+      )}
+    </div>
   );
 }

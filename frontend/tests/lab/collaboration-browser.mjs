@@ -57,10 +57,14 @@ export async function exerciseCollaboration(browser, origin) {
     const projectUrl = owner.url();
     await owner.getByRole("link", { name: "Nouvelle simulation" }).click();
     await owner.getByLabel("Nom de la simulation").fill("Contrat XML");
+    await owner.getByRole("tab", { name: "Réponse", exact: true }).click();
     await owner.getByLabel("Type de contenu").selectOption("application/xml");
     await owner
       .getByLabel("Corps de la réponse", { exact: true })
       .fill('<document statut="pret"/>');
+    await owner.getByRole("tab", { name: "En-têtes", exact: true }).click();
+    await owner.getByLabel("En-têtes JSON").fill('{"X-Recette":"xml"}');
+    await owner.getByRole("tab", { name: "Webhook", exact: true }).click();
     await owner.getByLabel("Programmer une notification POST").check();
     await owner
       .getByLabel("URL de réception")
@@ -69,18 +73,38 @@ export async function exerciseCollaboration(browser, origin) {
     await expect(
       owner.getByText("URL autorisée", { exact: true }),
     ).toBeVisible();
+    await owner.getByRole("tab", { name: "En-têtes", exact: true }).click();
+    await owner.getByLabel("En-têtes POST").fill("[]");
+    await owner.getByRole("tab", { name: "Paramètres", exact: true }).click();
     await owner.getByRole("button", { name: "Publier une version" }).click();
+    await expect(owner.getByLabel("En-têtes POST")).toBeFocused();
+    await owner
+      .getByLabel("En-têtes POST")
+      .fill('{"X-Recette":"notification"}');
+    await owner.getByRole("button", { name: "Publier une version" }).click();
+    await owner.getByRole("button", { name: "Fermer", exact: true }).click();
+    await expect(owner.getByRole("dialog")).toHaveCount(0);
+    await expect(
+      owner.getByRole("button", { name: "Exécuter la version v1" }),
+    ).toHaveCount(0);
+    await owner.getByRole("button", { name: "Publier une version" }).click();
+    await owner
+      .getByRole("button", { name: "Confirmer la publication" })
+      .click();
     await expect(
       owner.getByRole("button", { name: "Exécuter la version v1" }),
     ).toBeVisible();
     const simUrl = owner.url();
-    const endpoint = await owner.locator(".previewCol code.wrap").innerText();
+    await owner.getByText("Détails de l’appel test", { exact: true }).click();
+    const endpoint = await owner.locator("details code.wrap").innerText();
     const r = await owner.request.post(endpoint, {
       headers: { "x-lab-key": key },
     });
     expect(r.status()).toBe(200);
+    expect(r.headers()["x-recette"]).toBe("xml");
     expect(r.headers()["content-type"]).toBe("application/xml");
     expect(await r.text()).toBe('<document statut="pret"/>');
+    await owner.getByRole("tab", { name: "Paramètres", exact: true }).click();
     await owner.getByRole("link", { name: "Partager la simulation" }).click();
     await owner
       .getByLabel("Adresse e-mail du destinataire")
@@ -91,6 +115,7 @@ export async function exerciseCollaboration(browser, origin) {
     ).toBeVisible();
     await reader.goto(simUrl);
     await reader.reload();
+    await reader.getByRole("tab", { name: "Paramètres", exact: true }).click();
     await expect(reader.getByLabel("Nom de la simulation")).toBeDisabled();
     await stranger.goto(simUrl);
     await stranger.reload();
@@ -103,9 +128,11 @@ export async function exerciseCollaboration(browser, origin) {
       .getByRole("button", { name: "Actions pour Contrat XML" })
       .click();
     await reader.getByRole("button", { name: "Dupliquer" }).click();
+    await reader.getByRole("tab", { name: "Paramètres", exact: true }).click();
     await expect(reader.getByLabel("Nom de la simulation")).toHaveValue(
       "Contrat XML · copie",
     );
+    await reader.getByRole("tab", { name: "Webhook", exact: true }).click();
     await expect(
       reader.getByLabel("Programmer une notification POST"),
     ).not.toBeChecked();

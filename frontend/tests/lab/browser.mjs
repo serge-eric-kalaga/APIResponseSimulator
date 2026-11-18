@@ -79,6 +79,8 @@ try {
   await expect(page.locator(".rowTitle")).toHaveCount(1);
   await page.getByRole("link", { name: "Nouvelle simulation" }).click();
   await page.getByLabel("Nom de la simulation").fill("Recette navigateur");
+  const tab = (name) => page.getByRole("tab", { name, exact: true });
+  await tab("Variables").click();
   // A visual insertion must preserve the numeric type and the preview must stay offline.
   const previewRequests = [];
   const watchPreview = (req) => {
@@ -90,53 +92,75 @@ try {
   await page.getByLabel("Type JSON").selectOption("integer");
   await page.getByLabel("Mode", { exact: true }).selectOption("fixed");
   await page.getByLabel("Valeur fixe").fill("3");
+  await tab("Réponse").click();
   const editor = page.getByLabel("Corps de la réponse", { exact: true });
   await editor.fill('{"quantite":null}');
   await editor.evaluate((el) => el.setSelectionRange(12, 16));
   await page
     .getByLabel("Insérer une variable dans Corps de la réponse")
     .selectOption("quantite");
-  await expect(page.locator(".codePanel")).toContainText('"quantite": 3');
+  await expect(page.getByLabel("Réponse du brouillon")).toContainText(
+    '"quantite": 3',
+  );
   await page
     .getByRole("button", { name: "Indenter le JSON", exact: true })
     .click();
   await expect(editor).toHaveValue(/\n/);
   // Repeat the two clicks from the reported empty-object case without repositioning the cursor.
   await editor.fill("{}");
+  await tab("Variables").click();
   await page.getByRole("button", { name: "Ajouter", exact: true }).click();
   const insertButtons = page.getByRole("button", {
     name: "Insérer dans le corps",
   });
   await insertButtons.nth(0).click();
+  await tab("Variables").click();
   await insertButtons.nth(1).click();
   expect(JSON.parse(await editor.inputValue())).toEqual({
     quantite: "{{quantite}}",
     variable2: "{{variable2}}",
   });
-  await expect(page.locator(".codePanel")).toContainText('"quantite": 3');
-  await page.getByLabel("Sans corps", { exact: true }).check();
+  await expect(page.getByLabel("Réponse du brouillon")).toContainText(
+    '"quantite": 3',
+  );
+  await page.getByLabel("Sans corps de réponse", { exact: true }).check();
   await page.getByLabel("Statut HTTP").fill("204");
-  await expect(page.locator(".codePanel")).toContainText("(sans corps)");
-  await page.getByLabel("Sans corps", { exact: true }).uncheck();
+  await expect(page.getByLabel("Réponse du brouillon")).toContainText(
+    "(sans corps)",
+  );
+  await page.getByLabel("Sans corps de réponse", { exact: true }).uncheck();
+  await page.getByText("Modèles de réponse", { exact: true }).click();
   await page.getByRole("button", { name: "200", exact: true }).click();
   page.off("request", watchPreview);
   if (previewRequests.length)
     throw Error("La prévisualisation a effectué un appel API.");
   await page.getByLabel("Corps de la réponse", { exact: true }).fill("{");
   await page.getByRole("button", { name: "Publier une version" }).click();
-  await expect(page.locator(".editorForm .error")).toContainText(
-    "JSON invalide",
-  );
+  await expect(
+    page.getByRole("alert").filter({ hasText: "JSON invalide" }).first(),
+  ).toContainText("JSON invalide");
   await page.getByRole("button", { name: "Enregistrer le brouillon" }).click();
   await expect(page).toHaveURL(/#\/editor\//);
   await page.reload();
   await expect(
     page.getByLabel("Corps de la réponse", { exact: true }),
   ).toHaveValue("{");
+  await page.getByText("Modèles de réponse", { exact: true }).click();
   await page.getByRole("button", { name: "400", exact: true }).click();
+  await tab("Webhook").click();
   await page.getByLabel("Programmer une notification POST").check();
   await page.getByLabel("Destination autorisée").selectOption("pilot-receiver");
   await page.getByRole("button", { name: "Publier une version" }).click();
+  const publish = page.getByRole("dialog", { name: "Publier la version v1" });
+  await expect(publish).toContainText("HTTP 400");
+  await publish
+    .getByRole("button", { name: "Confirmer la publication" })
+    .click();
+  await tab("Réponse").click();
+  await page.getByLabel("Statut HTTP").fill("418");
+  await expect(page.getByLabel("Réponse du brouillon")).toContainText(
+    "HTTP 418",
+  );
   await page.getByRole("button", { name: "Copier le cURL" }).click();
   await expect
     .poll(() => page.evaluate(() => navigator.clipboard.readText()))
@@ -163,6 +187,7 @@ try {
     .getByRole("button", { name: "Actions pour Recette navigateur" })
     .click();
   await page.getByRole("button", { name: "Dupliquer" }).click();
+  await tab("Paramètres").click();
   await expect(page.getByLabel("Nom de la simulation")).toHaveValue(
     "Recette navigateur · copie",
   );

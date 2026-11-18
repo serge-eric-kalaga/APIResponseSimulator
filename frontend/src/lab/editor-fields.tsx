@@ -1,6 +1,6 @@
 import { cloneElement, useId } from "react";
-import type { ReactNode, ReactElement, HTMLAttributes } from "react";
-import { Braces, Plus, Trash2 } from "lucide-react";
+import type { ReactElement, HTMLAttributes } from "react";
+import { Plus, Trash2 } from "lucide-react";
 import { jsonTypes, newVariable } from "./model";
 import type { Variable } from "./model";
 
@@ -31,25 +31,14 @@ export function Field({
     </div>
   );
 }
-export function Block({
-  icon: Icon,
-  title,
-  children,
-}: {
-  icon: typeof Braces;
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="panel block">
-      <h2>
-        <Icon size={18} />
-        {title}
-      </h2>
-      {children}
-    </section>
-  );
+export function appendVariable(list: Variable[]) {
+  const names = new Set(list.map((v) => v.name));
+  let index = list.length + 1;
+  let name = list.length ? "variable" + index : "reference";
+  while (names.has(name)) name = "variable" + ++index;
+  return [...list, { ...newVariable(), name }];
 }
+
 export function Variables({
   list,
   update,
@@ -65,21 +54,13 @@ export function Variables({
   return (
     <>
       <div className="sectionTitle">
-        <h3>Variables typées</h3>
+        <span>
+          {list.length} variable{list.length > 1 ? "s" : ""}
+        </span>
         <button
           type="button"
           className="btn small"
-          onClick={() =>
-            update([
-              ...list,
-              {
-                ...newVariable(),
-                name: list.length
-                  ? "variable" + (list.length + 1)
-                  : "reference",
-              },
-            ])
-          }
+          onClick={() => update(appendVariable(list))}
         >
           <Plus />
           Ajouter
