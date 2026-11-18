@@ -76,3 +76,54 @@ test("environment and simulation grants compose, revoke and isolate writes", asy
     db.close();
   }
 });
+
+test("a private environment invitation exposes published versions and preserves independent simulation grants", async () => {
+  const db = openDatabase(":memory:");
+  try {
+    const ownerToken = await enroll(db, {
+      email: "owner@example.test",
+      password: "mot-de-passe-recette",
+    });
+    const reader = identity(
+      db,
+      await enroll(db, {
+        email: "reader@example.test",
+        password: "mot-de-passe-recette",
+      }),
+    );
+    newProject(db, identity(db, ownerToken), "Atelier");
+    const owner = identity(db, ownerToken);
+    const env = newEnvironment(db, owner, "Atelier", "Préproduction");
+    const config = {
+      ...blank("Atelier"),
+      name: "Version publiée",
+      environment: env.id,
+    };
+    const sim = save(db, owner, config, null, null, true);
+    save(
+      db,
+      owner,
+      { ...config, name: "Brouillon suivant" },
+      sim.id,
+      sim.revision,
+    );
+    const invitation = { action: "invite", email: "reader@example.test" };
+    sharing(db, owner, "environment", env.id, invitation);
+    assert.equal(library(db, reader, sim.id)[0].draft.name, "Version publiée");
+    assert.equal(environments(db, reader)[0].id, env.id);
+    sharing(db, owner, "simulation", sim.id, invitation);
+    sharing(db, owner, "environment", env.id, {
+      ...invitation,
+      action: "remove",
+    });
+    assert.deepEqual(environments(db, reader), []);
+    assert.equal(library(db, reader, sim.id)[0].draft.name, "Version publiée");
+    sharing(db, owner, "simulation", sim.id, {
+      ...invitation,
+      action: "remove",
+    });
+    assert.deepEqual(library(db, reader, sim.id), []);
+  } finally {
+    db.close();
+  }
+});
