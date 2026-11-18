@@ -101,7 +101,7 @@ function headerMap(raw: string, field: string): Record<string,string> {
 }
 export function compile(d: Draft, input: Record<string, unknown> = {}) {
   if (!d.name.trim()) fail("name", "Donnez un nom à la simulation.");
-  if (!/^\/(?:[A-Za-z0-9_~-]+(?:[./-][A-Za-z0-9_~-]+)*\/?)*$/.test(d.path) || d.path.includes("//"))
+  if (!/^\/[A-Za-z0-9._~/-]*$/.test(d.path) || d.path.includes("//") || d.path.split("/").some(segment => segment === ".." || segment === "."))
     fail("path", "Utilisez un chemin exact commençant par /.");
   if (!Number.isInteger(d.status) || d.status < 200 || d.status > 599) fail("status", "Choisissez un statut final de 200 à 599.");
   if ([204,205,304].includes(d.status) && !d.noBody) fail("noBody", "Ce statut exige une réponse sans corps.");
