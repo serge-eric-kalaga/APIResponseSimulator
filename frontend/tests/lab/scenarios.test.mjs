@@ -166,3 +166,47 @@ test("a failed outbox insert also rolls back the execution", () => {
   assert.equal(db.prepare("SELECT count(*) n FROM runs").get().n, 0);
   db.close();
 });
+test("rate ceiling and outbox ceiling reject work atomically", () => {
+  const { db, user, d, sim, call } = setup();
+  save(db, user, { ...d, webhook: false }, sim.id, 1, true, entries);
+  for (let i = 0; i < 120; i++) trigger(db, call, entries, 1000);
+  assert.throws(
+    () => trigger(db, call, entries, 1000),
+    (e) => e.status === 429,
+  );
+  assert.equal(db.prepare("SELECT count(*) n FROM runs").get().n, 120);
+  trigger(db, call, entries, 61000);
+  save(db, user, d, sim.id, 2, true, entries);
+  db.exec(`WITH RECURSIVE ticks(i) AS (VALUES(1) UNION ALL SELECT i+1 FROM ticks WHERE i<1000)
+ INSERT INTO jobs(id,run,dest,url,payload,headers,planned,due,state)
+ SELECT 'fixture-'||i,NULL,'local','fixture','{}','{}',1,1,'pending' FROM ticks`);
+  assert.throws(
+    () => trigger(db, call, entries, 61000),
+    (e) => e.status === 503,
+  );
+  assert.equal(db.prepare("SELECT count(*) n FROM runs").get().n, 121);
+  db.close();
+});
+test("only the approved public test address and project pass destination validation", () => {
+  const entry = {
+    id: "catalog",
+    projects: ["QA"],
+    url: "https://qa.example.test/events",
+    environment: "test",
+    ip: "8.8.8.8",
+  };
+  assert.equal(target("catalog", "QA", entry.url, [entry]), entry);
+  for (const ip of [
+    "127.1.2.3",
+    "10.1.2.3",
+    "192.168.1.2",
+    "169.254.1.2",
+    "192.0.2.1",
+    "::1",
+  ])
+    assert.throws(() => target("catalog", "QA", entry.url, [{ ...entry, ip }]));
+  assert.throws(() => target("catalog", "Prod", entry.url, [entry]));
+  assert.throws(() =>
+    target("catalog", "QA", null, [{ ...entry, url: "invalide" }]),
+  );
+});

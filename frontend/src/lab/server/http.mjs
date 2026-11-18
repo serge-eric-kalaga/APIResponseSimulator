@@ -76,8 +76,9 @@ function errorResponse(error) {
     { "x-lab-error": "1" },
   );
 }
-export async function simulate(req, id, path, db = database()) {
+export async function simulate(req, id, path, db) {
   try {
+    db ??= database();
     const raw = await readBody(req);
     const r = trigger(db, {
       id,
@@ -108,24 +109,32 @@ function technical(db, user) {
     db.prepare("SELECT seen FROM worker_status WHERE id=1").get()?.seen || null;
   return {
     ...row,
+    configErrors: db
+      .prepare(
+        `SELECT count(*) total FROM attempts a JOIN jobs j ON a.job=j.id JOIN runs r ON j.run=r.id
+      JOIN sims s ON r.sim=s.id JOIN grants g ON s.project=g.project
+      WHERE g.login=? AND a.outcome='Destination ou secret non autorisé'`,
+      )
+      .get(user.name).total,
     online: !!heartbeat && Date.now() - heartbeat < 30000,
     lag: row.due ? Math.max(0, Date.now() - row.due) : 0,
     heartbeat,
   };
 }
-export async function administration(req, parts, db = database()) {
+export async function administration(req, parts, db) {
   try {
+    db ??= database();
     const [resource, id, action] = parts;
     const method = req.method,
       write = method === "POST";
+    const requestUrl = new URL(req.url);
+    const origin =
+      process.env.RELAIS_ORIGIN ||
+      requestUrl.protocol + "//" + (req.headers.get("host") || requestUrl.host);
     if (
       write &&
       req.headers.get("origin") &&
-      req.headers.get("origin") !==
-        (process.env.RELAIS_ORIGIN ||
-          new URL(req.url).protocol +
-            "//" +
-            (req.headers.get("host") || new URL(req.url).host))
+      req.headers.get("origin") !== origin
     )
       throw new Problem(403, "Origine de la requête refusée.");
     let payload = {};
@@ -145,7 +154,7 @@ export async function administration(req, parts, db = database()) {
         .get("cookie")
         ?.match(/(?:^|;\s*)relais_session=([\w-]+)/)?.[1] || "";
     const cookieValue = (val, age) =>
-      `relais_session=${val}; HttpOnly; Path=/; SameSite=Strict; Max-Age=${age}${new URL(req.url).protocol === "https:" ? "; Secure" : ""}`;
+      `relais_session=${val}; HttpOnly; Path=/; SameSite=Strict; Max-Age=${age}${new URL(origin).protocol === "https:" ? "; Secure" : ""}`;
     if (resource === "login" && write) {
       limit(db, "login", 90);
       const session = signIn(db, String(payload.key || ""));
@@ -159,11 +168,7 @@ export async function administration(req, parts, db = database()) {
       return json({ ok: true }, 200, { "set-cookie": cookieValue("", 0) });
     }
     if (resource === "workspace" && !write) {
-      const items = library(db, user).map((s) => ({
-        ...s,
-        activePath:
-          s.active && !s.archived ? activeConfig(db, s.id).config.path : null,
-      }));
+      const items = library(db, user);
       const allowed = destinations().flatMap((d) => {
         const projects = user.projects.filter((p) => {
           try {
@@ -179,6 +184,12 @@ export async function administration(req, parts, db = database()) {
         user,
         items,
         runs: runs(db, user),
+        runCounts: db
+          .prepare(
+            `SELECT s.project,count(*) total FROM runs r JOIN sims s ON r.sim=s.id
+          JOIN grants g ON g.project=s.project WHERE g.login=? GROUP BY s.project`,
+          )
+          .all(user.name),
         destinations: allowed,
         health: technical(db, user),
       });

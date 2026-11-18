@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Block, Variables, Field } from "./editor-fields";
 import {
   ArrowLeft,
@@ -71,34 +71,34 @@ export function Editor({
     setDirty(true);
     setIssue({ field: "", message: "" });
   }
-  let preview: ReturnType<typeof compile> | undefined,
-    validation: FieldError | undefined;
-  try {
-    preview = compile(d);
-  } catch (e) {
-    validation = e as FieldError;
-  }
+  const { preview, validation } = useMemo(() => {
+    try {
+      return { preview: compile(d) };
+    } catch (error) {
+      return { validation: error as FieldError };
+    }
+  }, [d]);
   const err = (k: string) =>
     issue.field === k
       ? issue.message
       : validation?.field === k && k !== "name"
         ? validation.message
         : undefined;
-  function insert(name: string) {
-    const ref = targetBody === "body" ? bodyRef : hookRef,
+  function insert(name: string, destination = targetBody) {
+    const ref = destination === "body" ? bodyRef : hookRef,
       input = ref.current;
     if (!input) return;
     const s = input.selectionStart,
       e = input.selectionEnd,
       token = "{{" + name + "}}";
-    const value = d[targetBody];
+    const value = d[destination];
     const inString =
       (value.slice(0, s).match(/(?<!\\)"/g) || []).length % 2 === 1;
     const text =
-      inString || (targetBody === "body" && d.contentType === "text/plain")
+      inString || (destination === "body" && d.contentType === "text/plain")
         ? token
         : JSON.stringify(token);
-    edit(targetBody, value.slice(0, s) + text + value.slice(e));
+    edit(destination, value.slice(0, s) + text + value.slice(e));
     input.focus();
     requestAnimationFrame(() =>
       input.setSelectionRange(s + text.length, s + text.length),
@@ -179,24 +179,7 @@ export function Editor({
           <select
             aria-label={"Insérer une variable dans " + label}
             value=""
-            onChange={(e) => {
-              const input = (k === "body" ? bodyRef : hookRef).current;
-              if (!input) return;
-              const token = "{{" + e.target.value + "}}",
-                v = d[k],
-                at = input.selectionStart;
-              const inside =
-                (v.slice(0, at).match(/(?<!\\)"/g) || []).length % 2 === 1;
-              edit(
-                k,
-                v.slice(0, at) +
-                  (inside || (k === "body" && d.contentType === "text/plain")
-                    ? token
-                    : JSON.stringify(token)) +
-                  v.slice(input.selectionEnd),
-              );
-              input.focus();
-            }}
+            onChange={(e) => insert(e.target.value, k)}
           >
             <option value="">Insérer une variable…</option>
             {d.variables.map((v, i) => (
@@ -469,17 +452,16 @@ export function Editor({
               <>
                 <b>HTTP {d.status}</b>
                 <pre>
-                  {d.noBody
-                    ? "(sans corps)"
-                    : d.contentType +
-                      "\n" +
-                      Object.entries(preview.headers)
-                        .map(([k, v]) => k + ": " + v)
-                        .join("\n")}
+                  {[
+                    ...(d.noBody ? [] : ["Content-Type: " + d.contentType]),
+                    ...Object.entries(preview.headers).map(
+                      ([k, v]) => k + ": " + v,
+                    ),
+                  ].join("\n")}
                 </pre>
                 <pre>
                   {preview.body === null
-                    ? ""
+                    ? "(sans corps)"
                     : d.contentType === "text/plain"
                       ? preview.body
                       : pretty(JSON.parse(preview.body))}

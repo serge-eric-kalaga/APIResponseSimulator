@@ -209,7 +209,14 @@ export function LabApp() {
     activeLink = links.find((l) => l.id === group);
   return (
     <div className="lab">
-      <a className="skip" href="#main">
+      <a
+        className="skip"
+        href="#main"
+        onClick={(e) => {
+          e.preventDefault();
+          document.getElementById("main")?.focus();
+        }}
+      >
         Aller au contenu
       </a>
       <aside className={"sidebar " + (mobile ? "show" : "")}>
@@ -313,7 +320,7 @@ export function LabApp() {
             <RefreshCw size={15} />
           </button>
         </div>
-        <main id="main" className="mainContent">
+        <main id="main" tabIndex={-1} className="mainContent">
           {failure && (
             <p role="alert" className="error">
               {failure}

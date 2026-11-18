@@ -65,12 +65,14 @@ export type Workspace = {
   user: { name: string; projects: string[] };
   items: Item[];
   runs: Run[];
+  runCounts: { project: string; total: number }[];
   destinations: Destination[];
   health: {
     waiting: number;
     delivered: number;
     failed: number;
     lag: number;
+    configErrors: number;
     online: boolean;
     heartbeat: number | null;
   };

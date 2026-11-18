@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import {
   Activity,
   ArrowLeft,
@@ -167,25 +167,29 @@ export function RunDetail({
                 </li>
               )}
               {attempts.map((a) => (
-                <li key={a.number}>
-                  <strong>
-                    Tentative {a.number} · {a.outcome}
-                    {a.code ? " · HTTP " + a.code : ""}
-                  </strong>
-                  <small>
-                    {utc(a.started)} · Délai observé{" "}
-                    {((a.started - e.received) / 1000).toFixed(1)} s
-                  </small>
-                </li>
+                <Fragment key={a.number}>
+                  <li>
+                    <strong>
+                      Tentative {a.number} · {a.outcome}
+                      {a.code && !a.outcome.includes(String(a.code))
+                        ? " · HTTP " + a.code
+                        : ""}
+                    </strong>
+                    <small>
+                      {utc(a.started)} · Délai observé{" "}
+                      {((a.started - e.received) / 1000).toFixed(1)} s
+                    </small>
+                  </li>
+                  {j?.replayed && j.after_attempt === a.number && (
+                    <li>
+                      <strong>Doublon de recette demandé</strong>
+                      <small>
+                        {utc(j.replayed)} · Même identifiant de notification.
+                      </small>
+                    </li>
+                  )}
+                </Fragment>
               ))}
-              {j?.replayed && (
-                <li>
-                  <strong>Doublon de recette demandé</strong>
-                  <small>
-                    {utc(j.replayed)} · Même identifiant de notification.
-                  </small>
-                </li>
-              )}
               {j?.state === "cancelled" && (
                 <li>
                   <strong>Notification annulée</strong>
@@ -344,6 +348,8 @@ export function Health({ ws }: { ws: import("./client").Workspace }) {
             {h.heartbeat ? utc(h.heartbeat) : "Aucun signal"} ·{" "}
             {h.online ? "En ligne" : "À vérifier"}
           </dd>
+          <dt>Erreurs de configuration de livraison</dt>
+          <dd>{h.configErrors}</dd>
           <dt>Retard de la file</dt>
           <dd>{(h.lag / 1000).toFixed(1)} s</dd>
           <dt>Taux de livraison terminé</dt>

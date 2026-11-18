@@ -81,8 +81,9 @@ export function Library({ ws, refresh, notify, project }: Props) {
           {
             icon: Workflow,
             title: "Exécutions conservées",
-            value: ws.runs.filter((r) => !project || r.project === project)
-              .length,
+            value: ws.runCounts
+              .filter((r) => !project || r.project === project)
+              .reduce((sum, r) => sum + r.total, 0),
           },
         ].map(({ icon: Icon, title, value }) => (
           <div key={title}>

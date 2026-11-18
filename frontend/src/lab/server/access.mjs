@@ -7,14 +7,16 @@ export function createProject(db, name) {
   db.prepare("INSERT INTO projects VALUES(?,?)").run(name, hash(token));
   return token;
 }
-export function createAccount(db, login, projects) {
+/** Insert the account and its project grants inside the caller's transaction. */
+export function insertAccount(db, login, projects) {
   const token = key();
-  transaction(db, () => {
-    db.prepare("INSERT INTO accounts VALUES(?,?)").run(login, hash(token));
-    for (const project of projects)
-      db.prepare("INSERT INTO grants VALUES(?,?)").run(login, project);
-  });
+  db.prepare("INSERT INTO accounts VALUES(?,?)").run(login, hash(token));
+  for (const project of projects)
+    db.prepare("INSERT INTO grants VALUES(?,?)").run(login, project);
   return token;
+}
+export function createAccount(db, login, projects) {
+  return transaction(db, () => insertAccount(db, login, projects));
 }
 export function signIn(db, token) {
   const account = db

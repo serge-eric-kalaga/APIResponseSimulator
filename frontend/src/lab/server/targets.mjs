@@ -14,11 +14,14 @@ export function destinations() {
  * an exact HTTPS URL + a static public IPv4 pinned by the test environment owner. */
 export function target(id, project, snapshot, entries = destinations()) {
   const entry = entries.find(
-    (e) => e.id === id && e.projects.includes(project),
+    (e) =>
+      e?.id === id && Array.isArray(e.projects) && e.projects.includes(project),
   );
   if (!entry || (snapshot && entry.url !== snapshot))
     throw new Problem(422, "Destination indisponible pour ce projet.");
   if (entry.pilot === true && entry.url === pilotUrl) return entry;
+  if (!URL.canParse(entry.url))
+    throw new Problem(422, "URL de destination invalide.");
   const url = new URL(entry.url);
   const parts = String(entry.ip).split(".").map(Number);
   const [a, b, c] = parts;

@@ -7,7 +7,7 @@ import {
 } from "node:fs";
 import { resolve } from "node:path";
 import { openDatabase, transaction } from "../src/lab/server/db.mjs";
-import { createAccount, createProject } from "../src/lab/server/access.mjs";
+import { insertAccount, createProject } from "../src/lab/server/access.mjs";
 import { save } from "../src/lab/server/scenarios.mjs";
 import { pilotUrl, target } from "../src/lab/server/targets.mjs";
 import { referenceScenarios } from "../src/lab/fixtures.ts";
@@ -33,7 +33,7 @@ try {
         const projects = {};
         for (const p of ["Atlas", "Studio"]) projects[p] = createProject(db, p);
         // This transaction also owns the access-file creation. An existing pilot is never reset.
-        const key = createSimpleAccount("Pilote", Object.keys(projects));
+        const key = insertAccount(db, "Pilote", Object.keys(projects));
         write(credentials, {
           compte: "Pilote",
           cle_interface: key,
@@ -70,20 +70,24 @@ try {
       }
     console.log("Accès locaux :", credentials);
   } else if (command === "project" && valid(name)) {
-    write(resolve(dir, "projet-" + name + ".json"), {
-      projet: name,
-      cle_declenchement: createProject(db, name),
-    });
+    transaction(db, () =>
+      write(resolve(dir, "projet-" + name + ".json"), {
+        projet: name,
+        cle_declenchement: createProject(db, name),
+      }),
+    );
   } else if (
     command === "account" &&
     valid(name) &&
     args.length &&
     args.every(valid)
   ) {
-    write(resolve(dir, "compte-" + name + ".json"), {
-      compte: name,
-      cle_interface: createAccount(db, name, args),
-    });
+    transaction(db, () =>
+      write(resolve(dir, "compte-" + name + ".json"), {
+        compte: name,
+        cle_interface: insertAccount(db, name, args),
+      }),
+    );
   } else if (command === "grant" || command === "revoke") {
     if (!valid(name) || !valid(args[0]))
       throw Error("Compte et projet requis.");
@@ -104,13 +108,3 @@ try {
 } finally {
   db.close();
 }
-// Use the caller's transaction during the initial bootstrap.
-function createSimpleAccount(name, projects) {
-  const key = randomBytes(32).toString("base64url");
-  db.prepare("INSERT INTO accounts VALUES(?,?)").run(name, hash(key));
-  for (const p of projects)
-    db.prepare("INSERT INTO grants VALUES(?,?)").run(name, p);
-  return key;
-}
-import { randomBytes } from "node:crypto";
-import { hash } from "../src/lab/server/access.mjs";

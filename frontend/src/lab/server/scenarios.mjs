@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { draftSchema, compile } from "../model.ts";
+import { draftSchema, compile, FieldError } from "../model.ts";
 import { granted, hash } from "./access.mjs";
 import { limit, Problem, transaction } from "./db.mjs";
 import { target } from "./targets.mjs";
@@ -17,7 +17,7 @@ export function scenario(db, user, id) {
 export function library(db, user) {
   return db
     .prepare(
-      "SELECT sims.* FROM sims JOIN grants ON sims.project=grants.project WHERE login=? ORDER BY updated DESC,sims.rowid DESC",
+      "SELECT sims.*,CASE WHEN archived=0 THEN json_extract(v.config,'$.path') END activePath FROM sims LEFT JOIN versions v ON v.sim=sims.id AND v.number=sims.active JOIN grants ON sims.project=grants.project WHERE login=? ORDER BY updated DESC,sims.rowid DESC",
     )
     .all(user.name)
     .map(dehydrate);
@@ -27,7 +27,15 @@ export function save(db, user, input, id, revision, publish = false, entries) {
   granted(user, draft.project);
   if (publish) {
     compile(draft);
-    if (draft.webhook) target(draft.destination, draft.project, null, entries);
+    if (draft.webhook) {
+      try {
+        target(draft.destination, draft.project, null, entries);
+      } catch (error) {
+        if (error instanceof Problem)
+          throw new FieldError("destination", error.message);
+        throw error;
+      }
+    }
   }
   return transaction(db, () => {
     const previous = id ? scenario(db, user, id) : null;
@@ -98,10 +106,16 @@ export function trigger(
         "Aucune correspondance pour cette méthode et ce chemin.",
       );
     limit(db, "run:" + row.project, 120, now);
+    if (Buffer.byteLength(raw) > 65536)
+      throw new Problem(413, "Corps trop volumineux.");
     let input = {};
     if (raw) {
       try {
-        input = JSON.parse(raw) ?? {};
+        const parsed = JSON.parse(raw);
+        input =
+          parsed && typeof parsed === "object" && !Array.isArray(parsed)
+            ? parsed
+            : {};
       } catch {
         throw new Problem(400, "Le corps entrant doit être du JSON.");
       }

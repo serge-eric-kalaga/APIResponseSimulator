@@ -71,3 +71,50 @@ test("empty responses, headers, syntax, generator bounds and delay", () => {
   });
   assert.equal(result.variables.reference, "R-xxx");
 });
+test("inclusive integer bounds, decimal/null/UUID constants and escaped text", () => {
+  const d = {
+    ...base(),
+    variables: [
+      { ...newVariable(), name: "limit", type: "integer", min: -2, max: -2 },
+      {
+        ...newVariable(),
+        name: "price",
+        type: "decimal",
+        mode: "fixed",
+        value: "12.5",
+      },
+      {
+        ...newVariable(),
+        name: "ref",
+        mode: "fixed",
+        value: "a69e86db-4174-440e-a3ef-2cd27b499fab",
+      },
+      {
+        ...newVariable(),
+        name: "absent",
+        type: "null",
+        mode: "fixed",
+        value: "null",
+      },
+      {
+        ...newVariable(),
+        name: "text",
+        type: "string",
+        mode: "fixed",
+        value: 'a"b\\c',
+      },
+    ],
+    body: '["{{limit}}","{{price}}","{{absent}}","id={{ref}}","ref={{text}}"]',
+  };
+  assert.deepEqual(JSON.parse(compile(d).body), [
+    -2,
+    12.5,
+    null,
+    "id=a69e86db-4174-440e-a3ef-2cd27b499fab",
+    'ref=a"b\\c',
+  ]);
+  assert.deepEqual(
+    compile({ ...d, contentType: "text/plain", body: "valeur {{limit}}" }).body,
+    "valeur -2",
+  );
+});
