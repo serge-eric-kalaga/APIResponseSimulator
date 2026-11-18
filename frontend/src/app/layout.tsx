@@ -1,29 +1,15 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import "./globals.css";
-import { Providers } from "@/components/providers";
-import { Footer, SkipLink, PageTitle } from "@/components/layout/chrome";
-import { Navbar } from "@/components/layout/navbar";
-
+import "./lab.css";
 export const metadata: Metadata = {
+  title: "Relais · Banc de test API",
   description:
-    "Template fullstack FastAPI et Next.js avec authentification et profil utilisateur, à personnaliser pour démarrer vos projets.",
+    "Console de simulation HTTP et de recette des notifications différées.",
 };
-
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html suppressHydrationWarning lang="fr" className="h-full antialiased">
-      <body className="min-h-full">
-        <Providers>
-          <PageTitle />
-          <SkipLink />
-          <Navbar />
-          <div id="page-content" tabIndex={-1}>
-            {children}
-          </div>
-          <Footer />
-        </Providers>
-      </body>
+    <html lang="fr">
+      <body>{children}</body>
     </html>
   );
 }

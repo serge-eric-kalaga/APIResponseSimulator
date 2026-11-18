@@ -1,9 +1,12 @@
-import {DatabaseSync} from "node:sqlite";
-import {mkdirSync} from "node:fs";
-import {dirname, resolve} from "node:path";
+import { DatabaseSync } from "node:sqlite";
+import { mkdirSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 
-export function openDatabase(file = process.env.RELAIS_DB || resolve("..", "data", "relais.sqlite")) {
-  if (file !== ":memory:") mkdirSync(dirname(file), {recursive:true, mode:0o700});
+export function openDatabase(
+  file = process.env.RELAIS_DB || resolve("..", "data", "relais.sqlite"),
+) {
+  if (file !== ":memory:")
+    mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
   const db = new DatabaseSync(file);
   db.exec(`
     PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;
@@ -31,20 +34,35 @@ export function openDatabase(file = process.env.RELAIS_DB || resolve("..", "data
   return db;
 }
 let singleton;
-export function database() { return singleton ??= openDatabase(); }
+export function database() {
+  return (singleton ??= openDatabase());
+}
 
 /** SQLite's writer lock serializes version increments, quota checks and job claims across processes. */
 export function transaction(db, fn) {
   db.exec("BEGIN IMMEDIATE");
-  try { const result = fn(); db.exec("COMMIT"); return result; }
-  catch (e) { db.exec("ROLLBACK"); throw e; }
+  try {
+    const result = fn();
+    db.exec("COMMIT");
+    return result;
+  } catch (e) {
+    db.exec("ROLLBACK");
+    throw e;
+  }
 }
 export function limit(db, bucket, max, now = Date.now()) {
-  const minute = Math.floor(now/60000);
-  const {hits} = db.prepare(`INSERT INTO limits VALUES(?,?,1) ON CONFLICT(bucket) DO UPDATE SET
-    hits=CASE WHEN window=excluded.window THEN hits+1 ELSE 1 END,window=excluded.window RETURNING hits`).get(bucket, minute);
-  if (hits > max) throw new Problem(429,"Limite de fréquence atteinte.");
+  const minute = Math.floor(now / 60000);
+  const { hits } = db
+    .prepare(
+      `INSERT INTO limits VALUES(?,?,1) ON CONFLICT(bucket) DO UPDATE SET
+    hits=CASE WHEN window=excluded.window THEN hits+1 ELSE 1 END,window=excluded.window RETURNING hits`,
+    )
+    .get(bucket, minute);
+  if (hits > max) throw new Problem(429, "Limite de fréquence atteinte.");
 }
 export class Problem extends Error {
-  constructor(status, message) { super(message); this.status = status; }
+  constructor(status, message) {
+    super(message);
+    this.status = status;
+  }
 }

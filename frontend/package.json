@@ -18,7 +18,8 @@
     "lab:init": "node scripts/lab-admin.mjs init",
     "lab:worker": "node scripts/lab-worker.mjs",
     "lab:receiver": "node scripts/lab-receiver.mjs",
-    "test:lab": "node --test tests/lab/*.test.mjs"
+    "test:lab": "node --test tests/lab/*.test.mjs",
+    "lab:start": "node scripts/lab-start.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.2",
@@ -26,7 +27,7 @@
     "@tanstack/react-query": "^5.104.4",
     "i18next": "^26.5.2",
     "lucide-react": "^1.59.0",
-    "next": "16.4.2",
+    "next": "16.4.6",
     "next-themes": "^0.4.6",
     "react": "19.3.0",
     "react-dom": "19.3.0",
@@ -36,12 +37,14 @@
   },
   "devDependencies": {
     "@hey-api/openapi-ts": "0.99.0",
+    "@playwright/test": "^1.65.1",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.4.2",
+    "eslint-config-next": "16.4.6",
+    "prettier": "^3.10.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   },
