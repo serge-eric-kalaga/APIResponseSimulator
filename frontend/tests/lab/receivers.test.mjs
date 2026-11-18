@@ -11,7 +11,6 @@ import {
   registerReceiver,
   reviewReceiver,
 } from "../../src/lab/server/receivers.mjs";
-import { newEnvironment } from "../../src/lab/server/workspaces.mjs";
 import { save, trigger, execution } from "../../src/lab/server/scenarios.mjs";
 import { deliverOne } from "../../src/lab/server/outbox.mjs";
 import { blank } from "../../src/lab/model.ts";
@@ -22,10 +21,13 @@ test("a registered receiver is scoped, approved, snapshotted and rechecked befor
     const owner = identity(db, signIn(db, createAccount(db, "a", ["Test"])));
     const admin = identity(db, signIn(db, createAccount(db, "Pilote", [])));
     db.prepare("INSERT INTO operators VALUES(?)").run(admin.name);
-    const environment = newEnvironment(db, owner, "Test", "Dev").id;
+    createProject(db, "Autre");
+    const other = identity(
+      db,
+      signIn(db, createAccount(db, "autre", ["Autre"])),
+    );
     const payload = {
       project: "Test",
-      environment,
       url: "https://qa.example.test/receiver",
     };
     assert.throws(() => registerReceiver(db, admin, payload));
@@ -34,7 +36,6 @@ test("a registered receiver is scoped, approved, snapshotted and rechecked befor
     assert.equal(registerReceiver(db, owner, payload).id, r.id);
     const d = {
       ...blank("Test"),
-      environment,
       name: "Exemple",
       webhook: true,
       delay: 0,
@@ -51,7 +52,7 @@ test("a registered receiver is scoped, approved, snapshotted and rechecked befor
       { address: "8.8.8.8" },
     ]);
     assert.throws(() =>
-      save(db, owner, { ...d, environment: undefined }, null, null, true),
+      save(db, other, { ...d, project: "Autre" }, null, null, true),
     );
     const sim = save(db, owner, d, null, null, true),
       run = trigger(db, { id: sim.id, method: d.method, path: d.path, key });

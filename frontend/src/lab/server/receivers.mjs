@@ -2,12 +2,10 @@ import { randomUUID } from "node:crypto";
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { granted } from "./access.mjs";
-import { Problem } from "./db.mjs";
+import { Problem, transaction } from "./db.mjs";
 import { destinations, pilotUrl, target } from "./targets.mjs";
-import { environmentFor } from "./workspaces.mjs";
 
-const allRows =
-  "SELECT r.*,e.project,e.name environmentName FROM receivers r JOIN environments e ON e.id=r.environment";
+const allRows = "SELECT r.* FROM receivers r";
 export function isOperator(db, user) {
   return !!db.prepare("SELECT 1 FROM operators WHERE login=?").get(user.name);
 }
@@ -39,17 +37,15 @@ function entry(row) {
     environment: "test",
     label: row.url,
     projects: [row.project],
-    environmentId: row.environment,
     pilot: row.url === pilotUrl,
   };
 }
-export function entriesFor(db, project, id) {
-  const env = environmentFor(db, project, id);
+export function entriesFor(db, project) {
   const configured = destinations();
   const localEnabled = configured.some((c) => c.pilot && c.url === pilotUrl);
   const custom = db
-    .prepare(allRows + " WHERE r.environment=? AND r.status='active'")
-    .all(env)
+    .prepare(allRows + " WHERE r.project=? AND r.status='active'")
+    .all(project)
     .filter((r) => r.url !== pilotUrl || localEnabled)
     .map(entry);
   return [...configured, ...custom];
@@ -57,7 +53,6 @@ export function entriesFor(db, project, id) {
 export function registerReceiver(db, user, payload) {
   const { project } = payload;
   granted(user, project);
-  const environment = environmentFor(db, project, payload.environment);
   const url = canonical(payload.url),
     configured = destinations();
   const existing = configured.find(
@@ -70,22 +65,30 @@ export function registerReceiver(db, user, payload) {
   const pilot = url === pilotUrl;
   if (pilot && !configured.some((c) => c.pilot && c.url === pilotUrl))
     throw new Problem(422, "Récepteur local désactivé sur cette installation.");
-  const id = randomUUID();
-  db.prepare(
-    "INSERT OR IGNORE INTO receivers(id,environment,url,status) VALUES(?,?,?,?)",
-  ).run(id, environment, url, pilot ? "active" : "pending");
-  return db
-    .prepare(
-      "SELECT id,url,status FROM receivers WHERE environment=? AND url=?",
-    )
-    .get(environment, url);
+  // Older projects can contain the same URL under several IDs. Keep existing
+  // versions bound to their original approval; reuse a current ID for new drafts.
+  return transaction(db, () => {
+    const row = db
+      .prepare(
+        `SELECT id,url,status FROM receivers WHERE project=? AND url=?
+      ORDER BY CASE status WHEN 'active' THEN 0 WHEN 'pending' THEN 1 ELSE 2 END,id LIMIT 1`,
+      )
+      .get(project, url);
+    if (row) return row;
+    const id = randomUUID(),
+      status = pilot ? "active" : "pending";
+    db.prepare(
+      "INSERT INTO receivers(id,project,url,status) VALUES(?,?,?,?)",
+    ).run(id, project, url, status);
+    return { id, url, status };
+  });
 }
 export function receiverList(db, user) {
   const admin = isOperator(db, user);
   const rows = db
     .prepare(
       allRows +
-        " WHERE EXISTS (SELECT 1 FROM grants g WHERE g.project=e.project AND g.login=?) ORDER BY e.name,r.url",
+        " WHERE EXISTS (SELECT 1 FROM grants g WHERE g.project=r.project AND g.login=?) ORDER BY r.project,r.url",
     )
     .all(user.name);
   return {
@@ -94,10 +97,9 @@ export function receiverList(db, user) {
       ? db
           .prepare(allRows + " ORDER BY r.status,r.url")
           .all()
-          .map(({ id, project, environmentName, url, status }) => ({
+          .map(({ id, project, url, status }) => ({
             id,
             project,
-            environmentName,
             url,
             status,
           }))

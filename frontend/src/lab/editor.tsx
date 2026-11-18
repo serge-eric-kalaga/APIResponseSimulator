@@ -31,29 +31,17 @@ export function Editor({
   item,
   ws,
   project,
-  initialEnvironment,
   refresh,
   notify,
 }: {
   item?: Item;
   ws: Workspace;
   project: string;
-  initialEnvironment?: string;
   refresh: () => Promise<void>;
   notify: (s: string) => void;
 }) {
   const [d, set] = useState<Draft>(() =>
-    item
-      ? { ...item.draft, environment: item.environment }
-      : {
-          ...blank(
-            ws.environments.find((e) => e.id === initialEnvironment)?.project ||
-              project ||
-              ws.user.projects[0] ||
-              "",
-          ),
-          environment: initialEnvironment,
-        },
+    item ? item.draft : blank(project || ws.user.projects[0] || ""),
   );
   const [revision, setRevision] = useState(item?.revision),
     [dirty, setDirty] = useState(false),
@@ -132,13 +120,8 @@ export function Editor({
       setIssue({ field: k, message: (e as Error).message });
     }
   }
-  const envId =
-    d.environment ||
-    ws.environments.find((e) => e.project === d.project && e.primary_env)?.id;
-  const receivers = ws.destinations.filter(
-    (x) =>
-      x.projects.includes(d.project) &&
-      (!x.environmentId || x.environmentId === envId),
+  const receivers = ws.destinations.filter((x) =>
+    x.projects.includes(d.project),
   );
   const selectedReceiver = receivers.find((x) => x.id === d.destination);
   async function registerUrl() {
@@ -146,7 +129,6 @@ export function Editor({
     const r = await api<{ id: string; status: string }>("receivers", {
       url: d.destination,
       project: d.project,
-      environment: envId,
     });
     await refresh();
     edit("destination", r.id);
@@ -292,7 +274,6 @@ export function Editor({
                     set({
                       ...d,
                       project: e.target.value,
-                      environment: undefined,
                       destination: "",
                     });
                     setDirty(true);
@@ -301,36 +282,6 @@ export function Editor({
                   {(readOnly ? [d.project] : ws.user.projects).map((p) => (
                     <option key={p}>{p}</option>
                   ))}
-                </select>
-              </Field>
-              <Field label="Environnement">
-                <select
-                  disabled={!!item}
-                  value={
-                    d.environment ||
-                    ws.environments.find(
-                      (e) => e.project === d.project && e.primary_env,
-                    )?.id ||
-                    ""
-                  }
-                  onChange={(e) => {
-                    set({ ...d, environment: e.target.value, destination: "" });
-                    setDirty(true);
-                  }}
-                >
-                  {readOnly ? (
-                    <option value={item.environment}>
-                      {item.environmentName}
-                    </option>
-                  ) : (
-                    ws.environments
-                      .filter((e) => e.project === d.project && e.writable)
-                      .map((e) => (
-                        <option key={e.id} value={e.id}>
-                          {e.name}
-                        </option>
-                      ))
-                  )}
                 </select>
               </Field>
               <Field label="Service simulé">

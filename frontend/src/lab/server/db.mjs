@@ -15,16 +15,8 @@ export function openDatabase(
     CREATE TABLE IF NOT EXISTS passwords(login TEXT PRIMARY KEY REFERENCES accounts(name), email TEXT UNIQUE NOT NULL, salt TEXT NOT NULL, verifier TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS grants(login TEXT REFERENCES accounts(name), project TEXT REFERENCES projects(name),
       PRIMARY KEY(login,project));
-    CREATE TABLE IF NOT EXISTS environments(id TEXT PRIMARY KEY, project TEXT NOT NULL REFERENCES projects(name), name TEXT NOT NULL COLLATE NOCASE, primary_env INTEGER NOT NULL DEFAULT 0, UNIQUE(project,name));
-    CREATE UNIQUE INDEX IF NOT EXISTS primary_environment ON environments(project) WHERE primary_env=1;
-    CREATE TRIGGER IF NOT EXISTS project_environment AFTER INSERT ON projects BEGIN
-      INSERT INTO environments VALUES(lower(hex(randomblob(16))),NEW.name,'Recette',1);
-    END;
-    INSERT OR IGNORE INTO environments(id,project,name,primary_env) SELECT lower(hex(randomblob(16))),p.name,'Recette',1 FROM projects p WHERE NOT EXISTS (SELECT 1 FROM environments e WHERE e.project=p.name AND e.primary_env=1);
     CREATE TABLE IF NOT EXISTS sharing(kind TEXT NOT NULL, resource TEXT NOT NULL, recipient TEXT NOT NULL, PRIMARY KEY(kind,resource,recipient));
     CREATE TABLE IF NOT EXISTS operators(login TEXT PRIMARY KEY REFERENCES accounts(name));
-    CREATE TABLE IF NOT EXISTS receivers(id TEXT PRIMARY KEY, environment TEXT NOT NULL REFERENCES environments(id), url TEXT NOT NULL,
-      status TEXT NOT NULL, ip TEXT, UNIQUE(environment,url));
     CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY, login TEXT REFERENCES accounts(name), expires INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS sims(id TEXT PRIMARY KEY, project TEXT REFERENCES projects(name), draft TEXT NOT NULL,
       active INTEGER NOT NULL DEFAULT 0, archived INTEGER NOT NULL DEFAULT 0, updated INTEGER NOT NULL, revision INTEGER NOT NULL DEFAULT 1);
@@ -43,7 +35,39 @@ export function openDatabase(
     CREATE TABLE IF NOT EXISTS limits(bucket TEXT PRIMARY KEY, window INTEGER NOT NULL, hits INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS worker_status(id INTEGER PRIMARY KEY CHECK(id=1), seen INTEGER);
   `);
+  // Hold the writer lock across detection and conversion: the web and worker may start together.
+  transaction(db, () => {
+    const legacy = db
+      .prepare(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='environments'",
+      )
+      .get();
+    if (legacy) db.exec("ALTER TABLE receivers RENAME TO legacy_receivers");
+    db.exec(`CREATE TABLE IF NOT EXISTS receivers(id TEXT PRIMARY KEY, project TEXT NOT NULL REFERENCES projects(name),
+      url TEXT NOT NULL, status TEXT NOT NULL, ip TEXT);
+      CREATE INDEX IF NOT EXISTS receivers_project_url ON receivers(project,url);`);
+    if (legacy) migrateEnvironments(db);
+  });
   return db;
+}
+/** Preserve per-simulation readership and receiver IDs (including queued deliveries).
+ * An old environment invitation must never expose other simulations in the project. */
+function migrateEnvironments(db) {
+  db.exec(`
+    INSERT OR IGNORE INTO sharing(kind,resource,recipient)
+      SELECT 'simulation',s.id,h.recipient FROM sharing h
+      JOIN environments e ON h.kind='environment' AND h.resource=e.id
+      JOIN sims s ON s.project=e.project AND
+        (json_extract(s.draft,'$.environment')=e.id OR
+         (json_extract(s.draft,'$.environment') IS NULL AND e.primary_env=1));
+    DELETE FROM sharing WHERE kind='environment';
+    INSERT INTO receivers(id,project,url,status,ip)
+      SELECT r.id,e.project,r.url,r.status,r.ip FROM legacy_receivers r JOIN environments e ON e.id=r.environment;
+    UPDATE sims SET draft=json_remove(draft,'$.environment') WHERE json_type(draft,'$.environment') IS NOT NULL;
+    UPDATE versions SET config=json_remove(config,'$.environment') WHERE json_type(config,'$.environment') IS NOT NULL;
+    DROP TRIGGER IF EXISTS project_environment;
+    DROP TABLE legacy_receivers;
+    DROP TABLE environments;`);
 }
 let singleton;
 export function database() {

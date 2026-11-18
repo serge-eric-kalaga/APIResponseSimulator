@@ -6,8 +6,6 @@ export type Item = {
   active: number;
   activePath: string | null;
   archived: number;
-  environment: string;
-  environmentName: string;
   writable: number;
   updated: number;
   revision: number;
@@ -70,27 +68,19 @@ export type Destination = {
   label: string;
   url: string;
   status: string;
-  environmentId?: string;
   projects: string[];
 };
 export type Workspace = {
   user: { name: string; projects: string[] };
-  environments: {
-    id: string;
-    project: string;
-    name: string;
-    writable: number;
-    primary_env: number;
-  }[];
+  projects: { name: string; writable: number }[];
   items: Item[];
   runs: Run[];
-  runCounts: { project: string; environment: string; total: number }[];
+  runCounts: { project: string; total: number }[];
   destinations: Destination[];
   receiverReview: {
     id: string;
     url: string;
     status: string;
-    environmentName: string;
     project: string;
   }[];
   health: {

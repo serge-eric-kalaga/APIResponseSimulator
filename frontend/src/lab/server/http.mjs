@@ -15,12 +15,7 @@ import {
   scenario,
   trigger,
 } from "./scenarios.mjs";
-import {
-  newProject,
-  newEnvironment,
-  environments,
-  sharing,
-} from "./workspaces.mjs";
+import { newProject, projects, sharing } from "./workspaces.mjs";
 import {
   registerReceiver,
   receiverList,
@@ -192,8 +187,6 @@ export async function administration(req, parts, db) {
     }
     if (resource === "projects" && write)
       return json(newProject(db, user, payload.name), 201);
-    if (resource === "environments" && write)
-      return json(newEnvironment(db, user, payload.project, payload.name), 201);
     if (resource === "sharing" && action)
       return json(sharing(db, user, id, action, write ? payload : null));
     if (resource === "workspace" && !write) {
@@ -222,13 +215,13 @@ export async function administration(req, parts, db) {
       const receivers = receiverList(db, user);
       return json({
         user,
-        environments: environments(db, user),
+        projects: projects(db, user),
         items,
         runs: runs(db, user),
         runCounts: db
           .prepare(
-            `SELECT s.project,coalesce(json_extract(s.draft,'$.environment'),e.id) environment,count(*) total FROM runs r JOIN sims s ON r.sim=s.id JOIN environments e ON e.project=s.project AND e.primary_env=1
-          JOIN grants g ON g.project=s.project WHERE g.login=? GROUP BY s.project,environment`,
+            `SELECT s.project,count(*) total FROM runs r JOIN sims s ON r.sim=s.id
+          JOIN grants g ON g.project=s.project WHERE g.login=? GROUP BY s.project`,
           )
           .all(user.name),
         destinations: [...allowed, ...receivers.own],
@@ -249,9 +242,7 @@ export async function administration(req, parts, db) {
           ),
         );
       if (action === "duplicate")
-        return json(
-          duplicate(db, user, id, payload.project, payload.environment),
-        );
+        return json(duplicate(db, user, id, payload.project));
       scenario(db, user, id);
       if (action === "archive") {
         archive(db, user, id);

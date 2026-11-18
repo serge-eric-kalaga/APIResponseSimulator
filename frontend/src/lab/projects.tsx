@@ -1,13 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import {
-  ArrowLeft,
-  ArrowRight,
-  FolderPlus,
-  Layers2,
-  Share2,
-  Copy,
-} from "lucide-react";
+import { ArrowLeft, ArrowRight, FolderPlus, Share2, Copy } from "lucide-react";
 import { api } from "./client";
 import type { Workspace } from "./client";
 
@@ -20,28 +13,21 @@ export function Projects({
   refresh: () => Promise<void>;
   notify: (m: string) => void;
 }) {
-  const [name, setName] = useState(""),
-    [env, setEnv] = useState(""),
-    [selected, select] = useState(ws.user.projects[0] || "");
+  const [name, setName] = useState("");
   const [created, setCreated] = useState<{ name: string; key: string } | null>(
       null,
     ),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
-  async function create(kind: "projects" | "environments") {
+  async function create() {
     setError("");
     setBusy(true);
     try {
-      if (kind === "projects") {
-        const result = await api<{ name: string; key: string }>(kind, { name });
-        setCreated(result);
-        select(result.name);
-        setName("");
-      } else {
-        await api(kind, { project: selected, name: env });
-        setEnv("");
-        notify("Environnement créé.");
-      }
+      const result = await api<{ name: string; key: string }>("projects", {
+        name,
+      });
+      setCreated(result);
+      setName("");
       await refresh();
     } catch (e) {
       setError((e as Error).message);
@@ -53,7 +39,7 @@ export function Projects({
     <>
       <header className="pageheading">
         <div>
-          <h1>Projets et environnements</h1>
+          <h1>Projets</h1>
           <p>Organisez vos simulations et gérez leur partage.</p>
         </div>
       </header>
@@ -62,7 +48,7 @@ export function Projects({
           className="panel block"
           onSubmit={(e) => {
             e.preventDefault();
-            void create("projects");
+            void create();
           }}
         >
           <h2>
@@ -82,40 +68,6 @@ export function Projects({
             Créer le projet
           </button>
         </form>
-        {ws.user.projects.length > 0 && (
-          <form
-            className="panel block"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void create("environments");
-            }}
-          >
-            <h2>
-              <Layers2 />
-              Créer un environnement
-            </h2>
-            <label className="field">
-              Projet de l’environnement
-              <select value={selected} onChange={(e) => select(e.target.value)}>
-                {ws.user.projects.map((p) => (
-                  <option key={p}>{p}</option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              Nom de l’environnement
-              <input
-                required
-                maxLength={80}
-                value={env}
-                onChange={(e) => setEnv(e.target.value)}
-              />
-            </label>
-            <button disabled={busy} className="btn">
-              Créer l’environnement
-            </button>
-          </form>
-        )}
       </div>
       {error && (
         <p role="alert" className="error">
@@ -148,22 +100,23 @@ export function Projects({
         </section>
       )}
       <section className="panel block">
-        <h2>Environnements accessibles</h2>
-        {!ws.environments.length && (
+        <h2>Projets accessibles</h2>
+        {!ws.projects.length && (
           <p className="empty">
-            Créez votre premier projet pour ouvrir son environnement de recette.
+            Créez votre premier projet pour y ajouter des simulations.
           </p>
         )}
-        {ws.environments.map((e) => (
-          <div className="envRow" key={e.id}>
-            <a href={"#/environment/" + e.id}>
+        {ws.projects.map((e) => (
+          <div className="resourceRow" key={e.name}>
+            <a href={"#/project/" + encodeURIComponent(e.name)}>
               <strong>{e.name}</strong>
-              <small>
-                {e.project} · {e.writable ? "Votre espace" : "Lecture partagée"}
-              </small>
+              <small>{e.writable ? "Votre espace" : "Lecture partagée"}</small>
             </a>
             {!!e.writable && (
-              <a className="textBtn" href={"#/sharing/environment/" + e.id}>
+              <a
+                className="textBtn"
+                href={"#/sharing/project/" + encodeURIComponent(e.name)}
+              >
                 <Share2 size={15} />
                 Partager
               </a>
@@ -171,7 +124,7 @@ export function Projects({
             <a
               className="iconBtn"
               aria-label={"Ouvrir " + e.name}
-              href={"#/environment/" + e.id}
+              href={"#/project/" + encodeURIComponent(e.name)}
             >
               <ArrowRight size={16} />
             </a>
@@ -224,7 +177,7 @@ export function Sharing({
       setBusy(false);
     }
   }
-  const back = kind === "simulation" ? "/editor/" + id : "/environment/" + id;
+  const back = kind === "simulation" ? "/editor/" + id : "/project/" + id;
   return (
     <>
       <a className="back" href={"#" + back}>
@@ -236,11 +189,11 @@ export function Sharing({
           <h1>
             {kind === "simulation"
               ? "Partager la simulation"
-              : "Partager l’environnement"}
+              : "Partager le projet"}
           </h1>
           <p>
-            {kind === "environment"
-              ? "Les simulations actuelles et futures de cet environnement seront accessibles en lecture."
+            {kind === "project"
+              ? "Les simulations actuelles et futures de ce projet seront accessibles en lecture."
               : "Les destinataires pourront consulter la configuration et en créer une copie."}
           </p>
         </div>
@@ -301,7 +254,7 @@ export function Sharing({
             </button>
           </form>
           {policy.emails.map((v) => (
-            <div className="envRow" key={v}>
+            <div className="resourceRow" key={v}>
               {v}
               <button
                 disabled={busy}

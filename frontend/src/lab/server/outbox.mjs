@@ -12,7 +12,7 @@ export function claim(db, now = Date.now()) {
   return transaction(db, () => {
     const row = db
       .prepare(
-        `SELECT j.*,s.project,json_extract(v.config,'$.environment') env,coalesce(rp.after_attempt,0) offset FROM jobs j LEFT JOIN replays rp ON rp.job=j.id JOIN runs r ON r.id=j.run JOIN sims s ON s.id=r.sim JOIN versions v ON v.sim=r.sim AND v.number=r.version
+        `SELECT j.*,s.project,coalesce(rp.after_attempt,0) offset FROM jobs j LEFT JOIN replays rp ON rp.job=j.id JOIN runs r ON r.id=j.run JOIN sims s ON s.id=r.sim
       WHERE (j.state IN ('pending','retry') AND j.due<=?) OR (j.state='sending' AND j.until<=?) ORDER BY j.due LIMIT 1`,
       )
       .get(now, now);
@@ -157,7 +157,7 @@ export async function deliverOne(
       job.dest,
       job.project,
       job.url,
-      entries ?? entriesFor(db, job.project, job.env),
+      entries ?? entriesFor(db, job.project),
     );
     code = await transport(job, entry);
     temporary = [408, 425, 429].includes(code) || code >= 500;

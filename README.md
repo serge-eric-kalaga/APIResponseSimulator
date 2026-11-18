@@ -14,7 +14,7 @@ npm ci
 npm run dev
 ```
 
-Ouvrir [la console locale](http://127.0.0.1:3210), puis choisir **Créer un compte**. L’inscription utilise une adresse e-mail et un mot de passe. Dans **Projets et environnements**, créer un projet. Il reçoit un environnement privé **Recette**. On peut ensuite ajouter ses propres environnements. La clé affichée à la création du projet sert aux appels HTTP des clients de test.
+Ouvrir [la console locale](http://127.0.0.1:3210), puis choisir **Créer un compte**. L’inscription utilise une adresse e-mail et un mot de passe. Dans **Projets**, créer un projet puis y ajouter directement ses simulations. La clé affichée à la création du projet sert aux appels HTTP des clients de test.
 
 Le compte Pilote existant conserve Atlas, Studio et les quatre scénarios de démonstration. Choisir **J’ai une ancienne clé** à la connexion pour associer ce compte à une adresse e-mail et à un mot de passe. Sa clé initiale figure dans le fichier privé `data/acces-pilote.json`. La migration préserve ses projets, ses versions et ses historiques.
 
@@ -33,11 +33,11 @@ Le volume nommé `relais_data` conserve les données entre deux démarrages. Le 
 
 Sur plusieurs postes, les utilisateurs doivent ouvrir la même adresse de Relais. Pour héberger une instance d’équipe, placer la console derrière un proxy HTTPS, définir `RELAIS_ORIGIN` sur l’origine HTTPS exacte et conserver le volume de données. Les liens copiés depuis cette adresse ouvrent les ressources sur cette instance.
 
-Dans **Projets et environnements**, choisir **Partager** sur un environnement. Dans l’éditeur, choisir **Partager la simulation** pour une seule simulation. Saisir l’adresse d’un utilisateur déjà inscrit, ou choisir **Public pour tous les utilisateurs connectés**. Le bouton **Copier le lien** permet de transmettre le lien interne. Le destinataire voit aussi les éléments dans sa bibliothèque, avec le filtre **Partagées avec moi**.
+Dans **Projets**, choisir **Partager** sur un projet. Dans l’éditeur, choisir **Partager la simulation** pour une seule simulation. Saisir l’adresse d’un utilisateur déjà inscrit, ou choisir **Public pour tous les utilisateurs connectés**. Le bouton **Copier le lien** permet de transmettre le lien interne. Le destinataire voit aussi les éléments dans sa bibliothèque, avec le filtre **Partagées avec moi**.
 
-Le partage donne la lecture et la duplication dans un projet personnel. Pour une simulation publiée, le destinataire voit la version active. Une simulation en brouillon partage sa configuration courante. Les historiques, les clés et les opérations de publication restent réservés aux membres du projet. Le partage d’un environnement s’applique aussi à ses futures simulations. Chaque source de droit se retire indépendamment. Les copies déjà faites appartiennent à leurs destinataires.
+Le partage donne la lecture et la duplication dans un projet personnel. Pour une simulation publiée, le destinataire voit la version active. Une simulation en brouillon partage sa configuration courante. Les historiques, les clés et les opérations de publication restent réservés aux membres du projet. Le partage d’un projet s’applique aussi à ses futures simulations. Chaque source de droit se retire indépendamment. Les copies déjà faites appartiennent à leurs destinataires.
 
-Dans **Webhook différé**, activer la notification, saisir son **URL de réception** puis choisir **Enregistrer l’URL**. Le récepteur local fourni peut être utilisé immédiatement s’il est activé. Pour une nouvelle URL externe, le compte Pilote vérifie le service de recette puis l’autorise dans **Notifications**. La destination est alors disponible dans l’environnement concerné.
+Dans **Webhook différé**, activer la notification, saisir son **URL de réception** puis choisir **Enregistrer l’URL**. Le récepteur local fourni peut être utilisé immédiatement s’il est activé. Pour une nouvelle URL externe, le compte Pilote vérifie le service de recette puis l’autorise dans **Notifications**. La destination est alors disponible dans le projet concerné.
 
 **Type de contenu** propose JSON, XML et texte. Un corps XML est validé avant publication et ses variables sont échappées dans le texte et les attributs. Dans un objet JSON, deux insertions successives ajoutent deux propriétés. Une sélection explicite permet de remplacer une valeur existante. Le bouton **Indenter le JSON** corrige également l’ancien cas de variables juxtaposées sans nom de propriété.
 

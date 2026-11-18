@@ -4,7 +4,6 @@ import { granted, hash } from "./access.mjs";
 import { limit, Problem, transaction } from "./db.mjs";
 import { entriesFor } from "./receivers.mjs";
 import { target } from "./targets.mjs";
-import { environmentFor } from "./workspaces.mjs";
 import { traceFilter, headerTrace } from "./traces.mjs";
 
 function dehydrate(row) {
@@ -20,22 +19,21 @@ export function scenario(db, user, id) {
 export function library(db, user, id = null) {
   return db
     .prepare(
-      `SELECT s.id,s.project,s.revision,s.archived,s.active,s.updated,e.id environment,e.name environmentName,
+      `SELECT s.id,s.project,s.revision,s.archived,s.active,s.updated,
     g.login IS NOT NULL writable,
     CASE WHEN g.login IS NULL AND v.config IS NOT NULL THEN v.config ELSE s.draft END draft,
     CASE WHEN s.archived=0 THEN json_extract(v.config,'$.path') END activePath
-    FROM sims s JOIN environments e ON e.project=s.project AND
-    (e.id=json_extract(s.draft,'$.environment') OR (json_extract(s.draft,'$.environment') IS NULL AND e.primary_env=1))
+    FROM sims s
     LEFT JOIN versions v ON v.sim=s.id AND v.number=s.active
     LEFT JOIN grants g ON g.project=s.project AND g.login=:login
     WHERE (:id IS NULL OR s.id=:id) AND (g.login IS NOT NULL OR EXISTS(SELECT 1 FROM sharing h
-      WHERE h.recipient IN (:login,'*') AND ((h.kind='simulation' AND h.resource=s.id) OR (h.kind='environment' AND h.resource=e.id))))
+      WHERE h.recipient IN (:login,'*') AND ((h.kind='simulation' AND h.resource=s.id) OR (h.kind='project' AND h.resource=s.project))))
     ORDER BY s.updated DESC,s.rowid DESC`,
     )
     .all({ login: user.name, id })
     .map(dehydrate);
 }
-export function duplicate(db, user, id, project, environment) {
+export function duplicate(db, user, id, project) {
   const source = library(db, user, id)[0];
   if (!source) throw new Problem(404, "Simulation introuvable.");
   const dest = project || (source.writable ? source.project : user.projects[0]);
@@ -45,8 +43,6 @@ export function duplicate(db, user, id, project, environment) {
     ...source.draft,
     name: source.draft.name.slice(0, 150) + " · copie",
     project: dest,
-    environment:
-      environment || (dest === source.project ? source.environment : undefined),
   };
   if (dest !== source.project) {
     draft.destination = "";
@@ -57,7 +53,6 @@ export function duplicate(db, user, id, project, environment) {
 export function save(db, user, input, id, revision, publish = false, entries) {
   const draft = draftSchema.parse(input);
   granted(user, draft.project);
-  draft.environment = environmentFor(db, draft.project, draft.environment);
   if (publish) {
     compile(draft);
     if (draft.webhook) {
@@ -66,7 +61,7 @@ export function save(db, user, input, id, revision, publish = false, entries) {
           draft.destination,
           draft.project,
           null,
-          entries ?? entriesFor(db, draft.project, draft.environment),
+          entries ?? entriesFor(db, draft.project),
         );
       } catch (error) {
         if (error instanceof Problem)
@@ -81,10 +76,7 @@ export function save(db, user, input, id, revision, publish = false, entries) {
       throw new Problem(409, "Cette simulation est archivée.");
     if (
       previous &&
-      (previous.revision !== revision ||
-        previous.project !== draft.project ||
-        environmentFor(db, previous.project, previous.draft.environment) !==
-          draft.environment)
+      (previous.revision !== revision || previous.project !== draft.project)
     )
       throw new Problem(
         409,
@@ -140,7 +132,7 @@ export function trigger(
       d = row.config;
     if (user) granted(user, row.project);
     else if (hash(key || "") !== row.key_hash)
-      throw new Problem(403, "Clé d’environnement requise.");
+      throw new Problem(403, "Clé du projet requise.");
     if (method !== d.method || path !== d.path)
       throw new Problem(
         404,
@@ -174,7 +166,7 @@ export function trigger(
         d.destination,
         row.project,
         null,
-        entries ?? entriesFor(db, row.project, d.environment),
+        entries ?? entriesFor(db, row.project),
       );
       const { n } = db
         .prepare(

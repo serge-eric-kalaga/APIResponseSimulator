@@ -9,13 +9,12 @@ import {
   Target,
 } from "lucide-react";
 import { api, stateName, utc } from "./client";
-import type { Item, Proof } from "./client";
+import type { Proof } from "./client";
 import { TraceInspector } from "./trace-inspector";
 import s from "./trace.module.css";
 
 type Props = {
   id: string;
-  items: Item[];
   sections: { id: string; name: string }[];
   notify: (message: string) => void;
 };
@@ -122,11 +121,9 @@ function Timeline({
 function TraceHeader({
   sections,
   project,
-  environment,
 }: {
   sections: Props["sections"];
   project?: string;
-  environment?: string;
 }) {
   const [open, setOpen] = useState(false);
   const toggle = useRef<HTMLButtonElement>(null);
@@ -179,7 +176,6 @@ function TraceHeader({
           <div className={s.scope}>
             <Folder />
             <b>{project}</b>
-            {environment && <span>/ {environment}</span>}
           </div>
         )}
       </div>
@@ -187,7 +183,7 @@ function TraceHeader({
   );
 }
 
-export function RunDetail({ id, items, sections, notify }: Props) {
+export function RunDetail({ id, sections, notify }: Props) {
   const [e, set] = useState<Proof | null>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
@@ -280,7 +276,6 @@ export function RunDetail({ id, items, sections, notify }: Props) {
       <TraceHeader
         sections={sections}
         project={e?.trace.project}
-        environment={items.find((item) => item.id === e?.sim)?.environmentName}
       />
       <main className={s.page} id="main" tabIndex={-1}>
         <div className={s.crumb}>

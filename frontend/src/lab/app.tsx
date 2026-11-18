@@ -158,7 +158,7 @@ function Login({ onLogin }: { onLogin: () => Promise<void> }) {
           </div>
         </form>
         <div className="gateFoot">
-          <CircleDot size={14} /> Environnement de recette
+          <CircleDot size={14} /> Console de recette
         </div>
       </div>
       <aside className="gateArt" aria-label="Exemple de fonctionnement">
@@ -202,7 +202,7 @@ function Login({ onLogin }: { onLogin: () => Promise<void> }) {
   );
 }
 const links = [
-  { id: "projects", name: "Projets et environnements", icon: Folder },
+  { id: "projects", name: "Projets", icon: Folder },
   { id: "library", name: "Bibliothèque", icon: LibraryBig },
   { id: "runs", name: "Exécutions", icon: Activity },
   { id: "health", name: "Notifications", icon: Webhook },
@@ -263,9 +263,7 @@ export function LabApp() {
         void refresh().catch(() => {});
     }
     function onNavigate() {
-      if (
-        /^#\/(library|environment|editor|projects)(?:\/|$)/.test(location.hash)
-      )
+      if (/^#\/(library|project|editor|projects)(?:\/|$)/.test(location.hash))
         sync();
     }
     document.addEventListener("visibilitychange", sync);
@@ -289,8 +287,14 @@ export function LabApp() {
       </main>
     );
   const [, view, id, resourceId] = route.split("/"),
-    group = ["new", "editor"].includes(view) ? "library" : view;
-  const selectedEnv = ws.environments.find((e) => e.id === id);
+    group = ["new", "editor"].includes(view)
+      ? "library"
+      : view === "project"
+        ? "projects"
+        : view;
+  const selectedProject = ws.projects.find(
+    (p) => encodeURIComponent(p.name) === id,
+  );
   const item = ws.items.find((i) => i.id === id),
     activeLink = links.find((l) => l.id === group);
   const toast = message && (
@@ -301,21 +305,17 @@ export function LabApp() {
       </button>
     </div>
   );
-  if (view === "runs" && id)
-    return (
-      <>
-        <RunDetail
-          key={id}
-          id={id}
-          items={ws.items}
-          sections={links}
-          notify={notify}
-        />
-        {toast}
-      </>
-    );
+  if (view === "runs" && id) return <><RunDetail key={id} id={id} sections={links} notify={notify}/>{toast}</>;
   return (
-    <div className="lab">
+    <div
+      className="lab"
+      onKeyDown={(event) => {
+        if (mobile && event.key === "Escape") {
+          setMobile(false);
+          document.getElementById("console-menu-toggle")?.focus();
+        }
+      }}
+    >
       <a
         className="skip"
         href="#main"
@@ -326,7 +326,10 @@ export function LabApp() {
       >
         Aller au contenu
       </a>
-      <aside className={"sidebar " + (mobile ? "show" : "")}>
+      <aside
+        id="console-sidebar"
+        className={"sidebar " + (mobile ? "show" : "")}
+      >
         <Brand />
         <button
           className="mobileClose iconBtn"
@@ -367,7 +370,7 @@ export function LabApp() {
         </nav>
         <div className="sidebarBottom">
           <div className="envSide">
-            <Radio size={15} /> Environnement pilote
+            <Radio size={15} /> Console pilote
           </div>
           <div className="account">
             <b>{ws.user.name.slice(0, 2).toUpperCase()}</b>
@@ -407,23 +410,23 @@ export function LabApp() {
         <div className="topbar">
           <button
             className="mobileOpen iconBtn"
+            id="console-menu-toggle"
+            aria-expanded={mobile}
+            aria-controls="console-sidebar"
             aria-label="Ouvrir le menu"
             onClick={() => setMobile(true)}
           >
             <Menu />
           </button>
-          <Command size={15} />
-          <span>Console</span>
-          <ChevronRight size={13} />
-          <strong>{activeLink?.name || "Bibliothèque"}</strong>
-          <span className="envTag">
-            <i />{" "}
-            {view === "editor" && item
-              ? item.environmentName
-              : view === "environment" && selectedEnv
-                ? selectedEnv.name
-                : "Test"}
+          <span className="consoleCrumb">
+            <Command size={15} /> Console <ChevronRight size={13} />
           </span>
+          <strong>{activeLink?.name || "Bibliothèque"}</strong>
+          {((view === "editor" && item) || selectedProject) && (
+            <span className="projectTag">
+              {item?.project || selectedProject?.name}
+            </span>
+          )}
           <button
             className="iconBtn"
             aria-label="Actualiser les données"
@@ -436,7 +439,11 @@ export function LabApp() {
             <RefreshCw size={15} />
           </button>
         </div>
-        <main id="main" tabIndex={-1} className="mainContent">
+        <main
+          id="main"
+          tabIndex={-1}
+          className={view === "runs" && id ? "traceContent" : "mainContent"}
+        >
           {failure && (
             <p role="alert" className="error">
               {failure}
@@ -445,6 +452,13 @@ export function LabApp() {
           {view === "projects" ||
           (view === "new" && !ws.user.projects.length) ? (
             <Projects ws={ws} refresh={refresh} notify={notify} />
+          ) : view === "sharing" && !["simulation", "project"].includes(id) ? (
+            <p>
+              Ce lien de partage a expiré.{" "}
+              <a className="textBtn" href="#/library">
+                Ouvrir la bibliothèque
+              </a>
+            </p>
           ) : view === "sharing" ? (
             <Sharing
               key={route}
@@ -453,8 +467,8 @@ export function LabApp() {
               refresh={refresh}
               notify={notify}
             />
-          ) : view === "environment" && !selectedEnv ? (
-            <p>Environnement introuvable ou accès retiré.</p>
+          ) : view === "project" && !selectedProject ? (
+            <p>Projet introuvable ou accès retiré.</p>
           ) : view === "new" || view === "editor" ? (
             view === "editor" && !item ? (
               <p>Simulation introuvable.</p>
@@ -462,13 +476,14 @@ export function LabApp() {
               <Editor
                 key={id || "new"}
                 item={item}
-                initialEnvironment={
-                  view === "new" && selectedEnv?.writable
-                    ? selectedEnv.id
-                    : undefined
-                }
                 ws={ws}
-                project={project}
+                project={
+                  view === "new" && selectedProject?.writable
+                    ? selectedProject.name
+                    : ws.user.projects.includes(project)
+                      ? project
+                      : ""
+                }
                 refresh={refresh}
                 notify={notify}
               />
@@ -484,8 +499,8 @@ export function LabApp() {
               ws={ws}
               refresh={refresh}
               notify={notify}
-              project={view === "environment" ? selectedEnv!.project : project}
-              environment={view === "environment" ? selectedEnv : undefined}
+              project={view === "project" ? selectedProject!.name : project}
+              projectPage={view === "project" ? selectedProject : undefined}
             />
           )}
         </main>

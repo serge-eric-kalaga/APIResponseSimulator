@@ -3,9 +3,8 @@ import assert from "node:assert/strict";
 import { openDatabase } from "../../src/lab/server/db.mjs";
 import {
   newProject,
-  newEnvironment,
   sharing,
-  environments,
+  projects,
 } from "../../src/lab/server/workspaces.mjs";
 import { enroll } from "../../src/lab/server/passwords.mjs";
 import { identity } from "../../src/lab/server/access.mjs";
@@ -16,7 +15,7 @@ import {
   archive,
 } from "../../src/lab/server/scenarios.mjs";
 import { blank } from "../../src/lab/model.ts";
-test("environment and simulation grants compose, revoke and isolate writes", async () => {
+test("project and simulation grants compose, revoke and isolate writes", async () => {
   const db = openDatabase(":memory:");
   try {
     const users = [];
@@ -35,11 +34,9 @@ test("environment and simulation grants compose, revoke and isolate writes", asy
     owner.projects = ["Equipe"];
     newProject(db, reader, "Personnel");
     reader.projects = ["Personnel"];
-    const env = newEnvironment(db, owner, "Equipe", "Intégration");
     const sim = save(db, owner, {
       ...blank("Equipe"),
       name: "Contrat",
-      environment: env.id,
     });
     save(db, owner, { ...blank("Equipe"), name: "Privé" });
     assert.deepEqual(library(db, reader), []);
@@ -59,25 +56,26 @@ test("environment and simulation grants compose, revoke and isolate writes", asy
       action: "remove",
       email: "b@qa.test",
     });
-    sharing(db, owner, "environment", env.id, { action: "public" });
+    sharing(db, owner, "project", sim.project, { action: "public" });
     const added = save(db, owner, {
       ...blank("Equipe"),
       name: "Suite",
-      environment: env.id,
     });
-    assert.equal(library(db, third).length, 2);
-    assert.equal(environments(db, third)[0].id, env.id);
-    sharing(db, owner, "environment", env.id, { action: "restricted" });
+    assert.equal(library(db, third).length, 3);
+    assert.equal(projects(db, third)[0].name, sim.project);
+    sharing(db, owner, "project", sim.project, { action: "restricted" });
     assert.equal(library(db, third).length, 0);
     sharing(db, owner, "simulation", added.id, { action: "public" });
     assert.equal(library(db, third).length, 1);
-    assert.throws(() => newEnvironment(db, third, "Equipe", "Intrus"));
+    assert.throws(() =>
+      sharing(db, third, "project", sim.project, { action: "public" }),
+    );
   } finally {
     db.close();
   }
 });
 
-test("a private environment invitation exposes published versions and preserves independent simulation grants", async () => {
+test("a private project invitation exposes published versions and preserves independent simulation grants", async () => {
   const db = openDatabase(":memory:");
   try {
     const ownerToken = await enroll(db, {
@@ -93,11 +91,9 @@ test("a private environment invitation exposes published versions and preserves 
     );
     newProject(db, identity(db, ownerToken), "Atelier");
     const owner = identity(db, ownerToken);
-    const env = newEnvironment(db, owner, "Atelier", "Préproduction");
     const config = {
       ...blank("Atelier"),
       name: "Version publiée",
-      environment: env.id,
     };
     const sim = save(db, owner, config, null, null, true);
     save(
@@ -108,15 +104,15 @@ test("a private environment invitation exposes published versions and preserves 
       sim.revision,
     );
     const invitation = { action: "invite", email: "reader@example.test" };
-    sharing(db, owner, "environment", env.id, invitation);
+    sharing(db, owner, "project", sim.project, invitation);
     assert.equal(library(db, reader, sim.id)[0].draft.name, "Version publiée");
-    assert.equal(environments(db, reader)[0].id, env.id);
+    assert.equal(projects(db, reader)[0].name, sim.project);
     sharing(db, owner, "simulation", sim.id, invitation);
-    sharing(db, owner, "environment", env.id, {
+    sharing(db, owner, "project", sim.project, {
       ...invitation,
       action: "remove",
     });
-    assert.deepEqual(environments(db, reader), []);
+    assert.deepEqual(projects(db, reader), []);
     assert.equal(library(db, reader, sim.id)[0].draft.name, "Version publiée");
     sharing(db, owner, "simulation", sim.id, {
       ...invitation,

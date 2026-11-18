@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { createProject, granted } from "./access.mjs";
 import { Problem, transaction } from "./db.mjs";
 
@@ -20,51 +19,24 @@ export function newProject(db, user, value) {
     return { name, key };
   });
 }
-export function newEnvironment(db, user, project, value) {
-  granted(user, project);
-  const name = resourceName(value),
-    id = randomUUID();
-  if (
-    !db
-      .prepare(
-        "INSERT OR IGNORE INTO environments(id,project,name) VALUES(?,?,?)",
-      )
-      .run(id, project, name).changes
-  )
-    throw new Problem(409, "Cet environnement existe déjà dans le projet.");
-  return { id, name, project };
-}
-export function environments(db, user) {
+export function projects(db, user) {
   return db
     .prepare(
-      `SELECT e.*,g.login IS NOT NULL writable FROM environments e
-    LEFT JOIN grants g ON g.project=e.project AND g.login=:login
-    WHERE g.login IS NOT NULL OR EXISTS(SELECT 1 FROM sharing h WHERE h.kind='environment' AND h.resource=e.id AND h.recipient IN (:login,'*'))
-    ORDER BY e.project,e.primary_env DESC,e.name`,
+      `SELECT p.name,g.login IS NOT NULL writable FROM projects p
+    LEFT JOIN grants g ON g.project=p.name AND g.login=:login
+    WHERE g.login IS NOT NULL OR EXISTS(SELECT 1 FROM sharing h
+      WHERE h.kind='project' AND h.resource=p.name AND h.recipient IN (:login,'*'))
+    ORDER BY p.name`,
     )
     .all({ login: user.name });
 }
-export function environmentFor(db, project, id) {
-  const env = id
-    ? db
-        .prepare("SELECT id FROM environments WHERE project=? AND id=?")
-        .get(project, id)
-    : db
-        .prepare(
-          "SELECT id FROM environments WHERE project=? AND primary_env=1",
-        )
-        .get(project);
-  if (!env)
-    throw new Problem(422, "Sélectionnez un environnement de ce projet.");
-  return env.id;
-}
 function manageable(db, user, kind, id) {
-  if (!["simulation", "environment"].includes(kind))
+  if (!["simulation", "project"].includes(kind))
     throw new Problem(404, "Ressource introuvable.");
   const sql =
     kind === "simulation"
       ? "SELECT project FROM sims WHERE id=?"
-      : "SELECT project FROM environments WHERE id=?";
+      : "SELECT name AS project FROM projects WHERE name=?";
   const row = db.prepare(sql).get(id);
   if (!row) throw new Problem(404, "Ressource introuvable.");
   granted(user, row.project);

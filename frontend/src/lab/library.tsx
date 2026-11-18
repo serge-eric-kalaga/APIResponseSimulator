@@ -22,19 +22,15 @@ type Props = {
   refresh: () => Promise<void>;
   notify: (msg: string) => void;
   project: string;
-  environment?: Workspace["environments"][number];
+  projectPage?: Workspace["projects"][number];
 };
-export function Library({ ws, refresh, notify, project, environment }: Props) {
+export function Library({ ws, refresh, notify, project, projectPage }: Props) {
   const [search, setSearch] = useState(""),
     [service, setService] = useState(""),
     [ownership, setOwnership] = useState(""),
     [status, setStatus] = useState(""),
     [menu, setMenu] = useState("");
-  const scope = ws.items.filter(
-    (i) =>
-      (!project || i.project === project) &&
-      (!environment || i.environment === environment.id),
-  );
+  const scope = ws.items.filter((i) => !project || i.project === project);
   const rows = scope.filter(
     (i) =>
       (!ownership || (ownership === "member" ? !!i.writable : !i.writable)) &&
@@ -79,21 +75,22 @@ export function Library({ ws, refresh, notify, project, environment }: Props) {
       <header className="pageheading">
         <div>
           <div className="eyeline">ESPACE DE TRAVAIL</div>
-          <h1>{environment ? environment.name : "Bibliothèque"}</h1>
+          <h1>{projectPage?.name || "Bibliothèque"}</h1>
           <p>
-            {environment
-              ? environment.project +
-                " · " +
-                (environment.writable
-                  ? "Votre environnement"
-                  : "Environnement partagé en lecture")
+            {projectPage
+              ? projectPage.writable
+                ? "Simulations du projet"
+                : "Projet partagé en lecture"
               : "Configurez, publiez et rejouez vos simulations HTTP."}
           </p>
         </div>
         <div className="actions">
-          {!!environment?.writable && (
-            <a className="btn" href={"#/sharing/environment/" + environment.id}>
-              Partager l’environnement
+          {!!projectPage?.writable && (
+            <a
+              className="btn"
+              href={"#/sharing/project/" + encodeURIComponent(project)}
+            >
+              Partager le projet
             </a>
           )}
           <a
@@ -101,8 +98,8 @@ export function Library({ ws, refresh, notify, project, environment }: Props) {
             href={
               !ws.user.projects.length
                 ? "#/projects"
-                : environment?.writable
-                  ? "#/new/" + environment.id
+                : projectPage?.writable
+                  ? "#/new/" + encodeURIComponent(project)
                   : "#/new"
             }
           >
@@ -121,11 +118,7 @@ export function Library({ ws, refresh, notify, project, environment }: Props) {
             icon: Workflow,
             title: "Exécutions conservées",
             value: ws.runCounts
-              .filter(
-                (r) =>
-                  (!project || r.project === project) &&
-                  (!environment || r.environment === environment.id),
-              )
+              .filter((r) => !project || r.project === project)
               .reduce((sum, r) => sum + r.total, 0),
           },
         ].map(({ icon: Icon, title, value }) => (
@@ -155,7 +148,7 @@ export function Library({ ws, refresh, notify, project, environment }: Props) {
               onChange={(e) => setSearch(e.target.value)}
             />
           </label>
-          {!environment && (
+          {!projectPage && (
             <label className="selectTool">
               <select
                 value={ownership}
@@ -229,10 +222,7 @@ export function Library({ ws, refresh, notify, project, environment }: Props) {
                   </a>
                   <span className="projectCell">
                     {i.project}
-                    <small>
-                      {i.environmentName}
-                      {!i.writable ? " · Lecture partagée" : ""}
-                    </small>
+                    {!i.writable && <small>Lecture partagée</small>}
                   </span>
                   <span>
                     <span

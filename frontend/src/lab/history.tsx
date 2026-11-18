@@ -91,7 +91,7 @@ export function Health({
     <>
       <header className="pageheading">
         <div>
-          <div className="eyeline">ENVIRONNEMENT PILOTE</div>
+          <div className="eyeline">PILOTE</div>
           <h1>Notifications</h1>
           <p>
             Suivez le worker et les livraisons HTTP de vos projets autorisés.
@@ -144,11 +144,11 @@ export function Health({
             </p>
           )}
           {ws.receiverReview.map((r) => (
-            <div key={r.id} className="envRow">
+            <div key={r.id} className="resourceRow">
               <div>
                 <strong className="wrap">{r.url}</strong>
                 <small>
-                  {r.project} · {r.environmentName} ·{" "}
+                  {r.project} ·{" "}
                   {r.status === "pending"
                     ? "En attente"
                     : r.status === "active"

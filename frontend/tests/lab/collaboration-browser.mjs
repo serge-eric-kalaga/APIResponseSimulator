@@ -22,7 +22,7 @@ export async function exerciseCollaboration(browser, origin) {
   async function createProject(page, name) {
     await page
       .getByRole("navigation")
-      .getByRole("link", { name: "Projets et environnements" })
+      .getByRole("link", { name: "Projets" })
       .click();
     await page.getByLabel("Nom du projet").fill(name);
     await page
@@ -46,17 +46,15 @@ export async function exerciseCollaboration(browser, origin) {
       reader = await signup("lectrice@example.test"),
       stranger = await signup("tiers@example.test");
     await createProject(reader, "Copie privée");
-    const key = await createProject(owner, "Atelier");
-    await owner.getByLabel("Nom de l’environnement").fill("Intégration");
-    await owner
-      .getByRole("button", { name: "Créer l’environnement", exact: true })
-      .click();
-    const row = owner.locator(".envRow").filter({ hasText: "Intégration" });
-    const envShare = await row
+    const key = await createProject(owner, "Atelier été");
+    const row = owner
+      .locator(".resourceRow")
+      .filter({ hasText: "Atelier été" });
+    const projectShare = await row
       .getByRole("link", { name: "Partager" })
       .getAttribute("href");
-    await row.getByRole("link", { name: "Ouvrir Intégration" }).click();
-    const envUrl = owner.url();
+    await row.getByRole("link", { name: "Ouvrir Atelier été" }).click();
+    const projectUrl = owner.url();
     await owner.getByRole("link", { name: "Nouvelle simulation" }).click();
     await owner.getByLabel("Nom de la simulation").fill("Contrat XML");
     await owner.getByLabel("Type de contenu").selectOption("application/xml");
@@ -118,25 +116,27 @@ export async function exerciseCollaboration(browser, origin) {
     await reader.goto(simUrl);
     await reader.reload();
     await expect(reader.getByText("Simulation introuvable.")).toBeVisible();
-    await owner.goto(origin + "/" + envShare);
+    await owner.goto(origin + "/" + projectShare);
     await owner.getByLabel("Visibilité").selectOption("public");
     await expect
       .poll(
         async () =>
           (
             await (
-              await owner.request.get(origin + "/api/lab/" + envShare.slice(2))
+              await owner.request.get(
+                origin + "/api/lab/" + projectShare.slice(2),
+              )
             ).json()
           ).public,
       )
       .toBe(true);
-    await stranger.goto(envUrl);
+    await stranger.goto(projectUrl);
     await stranger.reload();
     await expect(stranger.locator(".rowTitle")).toContainText("Contrat XML");
     const anonymous = await browser.newContext();
     contexts.push(anonymous);
     const anonymousPage = await anonymous.newPage();
-    await anonymousPage.goto(envUrl);
+    await anonymousPage.goto(projectUrl);
     await expect(
       anonymousPage.getByRole("button", { name: "Se connecter", exact: true }),
     ).toBeVisible();
@@ -150,14 +150,16 @@ export async function exerciseCollaboration(browser, origin) {
         async () =>
           (
             await (
-              await owner.request.get(origin + "/api/lab/" + envShare.slice(2))
+              await owner.request.get(
+                origin + "/api/lab/" + projectShare.slice(2),
+              )
             ).json()
           ).public,
       )
       .toBe(false);
     await stranger.reload();
     await expect(
-      stranger.getByText("Environnement introuvable ou accès retiré."),
+      stranger.getByText("Projet introuvable ou accès retiré."),
     ).toBeVisible();
     await reader.getByRole("button", { name: "Se déconnecter" }).click();
     await reader.getByLabel("Adresse e-mail").fill("lectrice@example.test");
@@ -169,7 +171,7 @@ export async function exerciseCollaboration(browser, origin) {
       "Contrat XML · copie",
     );
     console.log(
-      "Inscription, projets, environnements, XML HTTP, URL webhook et partage multi-comptes validés.",
+      "Inscription, projets, XML HTTP, URL webhook et partage multi-comptes validés.",
     );
   } finally {
     await Promise.all(contexts.map((c) => c.close()));
