@@ -42,11 +42,13 @@ export type Trace = {
   sha: string;
   variables: unknown;
   incoming: unknown;
-  requestHeaders: unknown;
+  hasIncomingBody?: boolean;
+  hasResponseBody?: boolean;
+  requestHeaders: Record<string, string>;
   response: unknown;
-  responseHeaders: unknown;
+  responseHeaders: Record<string, string>;
   webhook: unknown;
-  hookHeaders: unknown;
+  hookHeaders: Record<string, string>;
 };
 export type Proof = {
   id: string;

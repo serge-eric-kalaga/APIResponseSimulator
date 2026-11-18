@@ -1,4 +1,5 @@
 /** Run through the public UI with an isolated database and fictional accounts. Requires npm run build. */
+import { exerciseTrace } from "./trace-browser.mjs";
 import { exerciseCollaboration } from "./collaboration-browser.mjs";
 import { chromium, expect } from "@playwright/test";
 import { spawn, spawnSync } from "node:child_process";
@@ -67,6 +68,7 @@ try {
   await expect(page.locator(".rowTitle")).toHaveCount(4);
   if (process.env.RELAIS_SCREENSHOT)
     await page.screenshot({ path: process.env.RELAIS_SCREENSHOT });
+  await exerciseTrace(ctx, url, env);
   await page.getByLabel("Rechercher dans les simulations").fill("Webhook");
   await expect(page.locator(".rowTitle")).toHaveCount(1);
   await page.getByLabel("Rechercher dans les simulations").fill("");
@@ -143,7 +145,7 @@ try {
   await expect(
     page.getByRole("heading", { name: "Chronologie" }),
   ).toBeVisible();
-  await expect(page.getByText("Réponse préparée · HTTP 400")).toBeVisible();
+  await expect(page.getByText("HTTP 400 · Version 1")).toBeVisible();
   await page.getByRole("button", { name: "Annuler l’envoi" }).click();
   await expect(page.getByText("Notification annulée")).toBeVisible();
   await page.getByRole("button", { name: "Copier le résumé" }).click();

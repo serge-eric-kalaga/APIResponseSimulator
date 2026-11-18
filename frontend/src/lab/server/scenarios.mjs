@@ -197,6 +197,8 @@ export function trigger(
       path,
       status: d.status,
       variables: filter.evidence(result.variables),
+      hasIncomingBody: raw.length > 0,
+      hasResponseBody: result.body !== null && result.body !== "",
       incoming: filter.body(raw),
       requestHeaders: headerTrace(headers),
       response: filter.body(result.body),

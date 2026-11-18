@@ -23,7 +23,9 @@ import type { Workspace } from "./client";
 import { Projects, Sharing } from "./projects";
 import { Library } from "./library";
 import { Editor } from "./editor";
-import { Health, History, RunDetail } from "./history";
+import { Health, History } from "./history";
+import { RunDetail } from "./run-detail";
+
 function Brand() {
   return (
     <div className="brand">
@@ -291,6 +293,27 @@ export function LabApp() {
   const selectedEnv = ws.environments.find((e) => e.id === id);
   const item = ws.items.find((i) => i.id === id),
     activeLink = links.find((l) => l.id === group);
+  const toast = message && (
+    <div className="toast" role="status">
+      {message}
+      <button aria-label="Fermer la notification" onClick={() => notify("")}>
+        <X size={15} />
+      </button>
+    </div>
+  );
+  if (view === "runs" && id)
+    return (
+      <>
+        <RunDetail
+          key={id}
+          id={id}
+          items={ws.items}
+          sections={links}
+          notify={notify}
+        />
+        {toast}
+      </>
+    );
   return (
     <div className="lab">
       <a
@@ -451,13 +474,9 @@ export function LabApp() {
               />
             )
           ) : view === "runs" ? (
-            id ? (
-              <RunDetail key={id} id={id} notify={notify} />
-            ) : (
-              <History
-                rows={ws.runs.filter((r) => !project || r.project === project)}
-              />
-            )
+            <History
+              rows={ws.runs.filter((r) => !project || r.project === project)}
+            />
           ) : view === "health" ? (
             <Health ws={ws} refresh={refresh} />
           ) : (
@@ -471,17 +490,7 @@ export function LabApp() {
           )}
         </main>
       </div>
-      {message && (
-        <div className="toast" role="status">
-          {message}
-          <button
-            aria-label="Fermer la notification"
-            onClick={() => notify("")}
-          >
-            <X size={15} />
-          </button>
-        </div>
-      )}
+      {toast}
     </div>
   );
 }

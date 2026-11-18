@@ -210,3 +210,45 @@ test("only the approved public test address and project pass destination validat
     target("catalog", "QA", null, [{ ...entry, url: "invalide" }]),
   );
 });
+
+test("trace distinguishes an actual JSON null from an absent HTTP body", () => {
+  const { db, user, d, sim, call } = setup();
+  try {
+    const published = save(
+      db,
+      user,
+      { ...d, body: "null", webhook: false },
+      sim.id,
+      sim.revision,
+      true,
+      entries,
+    );
+    const literal = execution(
+      db,
+      user,
+      trigger(db, { ...call, raw: "null" }, entries).id,
+    ).trace;
+    assert.equal(literal.response, null);
+    assert.equal(literal.incoming, null);
+    assert.equal(literal.hasResponseBody, true);
+    assert.equal(literal.hasIncomingBody, true);
+    save(
+      db,
+      user,
+      { ...d, status: 204, noBody: true, webhook: false },
+      sim.id,
+      published.revision,
+      true,
+      entries,
+    );
+    const empty = execution(
+      db,
+      user,
+      trigger(db, { ...call, raw: "" }, entries).id,
+    ).trace;
+    assert.equal(empty.hasIncomingBody, false);
+    assert.equal(empty.hasResponseBody, false);
+  } finally {
+    db.close();
+  }
+});
