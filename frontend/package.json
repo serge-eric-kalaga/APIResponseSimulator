@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/lab-start.mjs",
     "build": "next build",
-    "start": "next start",
+    "start": "node scripts/lab-start.mjs --prod",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
     "test:api": "node tests/api-auth.mjs",
@@ -19,7 +19,9 @@
     "lab:worker": "node scripts/lab-worker.mjs",
     "lab:receiver": "node scripts/lab-receiver.mjs",
     "test:lab": "node --test tests/lab/*.test.mjs",
-    "lab:start": "node scripts/lab-start.mjs"
+    "lab:start": "node scripts/lab-start.mjs",
+    "test:browser": "node tests/lab/browser.mjs",
+    "test:acceptance": "node tests/lab/acceptance.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.2",

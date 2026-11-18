@@ -34,7 +34,7 @@ for (const args of [
     "node_modules/next/dist/bin/next",
     process.argv.includes("--prod") ? "start" : "dev",
     "--hostname",
-    "127.0.0.1",
+    process.env.RELAIS_BIND || "127.0.0.1",
     "--port",
     process.env.PORT || "3210",
   ],

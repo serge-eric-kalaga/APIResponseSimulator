@@ -1,0 +1,21 @@
+FROM node:24-bookworm-slim AS build
+WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
+COPY package*.json ./
+RUN npm ci --no-audit --no-fund
+COPY . .
+RUN npm run build && npm prune --omit=dev --no-audit --no-fund
+
+FROM node:24-bookworm-slim AS pilot
+WORKDIR /app
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 RELAIS_HOME=/var/lib/relais RELAIS_BIND=0.0.0.0
+COPY --from=build /app/package*.json ./
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/.next ./.next
+COPY --from=build /app/next.config.mjs ./next.config.mjs
+COPY --from=build /app/scripts/lab-*.mjs ./scripts/
+COPY --from=build /app/src/lab ./src/lab
+RUN mkdir -p /var/lib/relais && chown node:node /var/lib/relais
+USER node
+EXPOSE 3210
+CMD ["node", "scripts/lab-start.mjs", "--prod"]
