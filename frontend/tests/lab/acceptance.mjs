@@ -17,7 +17,14 @@ const sha =
 const login = await fetch(origin + "/api/lab/login", {
   method: "POST",
   headers: { "content-type": "application/json" },
-  body: JSON.stringify({ key: access.cle_interface }),
+  body: JSON.stringify(
+    process.env.RELAIS_QA_EMAIL
+      ? {
+          email: process.env.RELAIS_QA_EMAIL,
+          password: process.env.RELAIS_QA_PASSWORD,
+        }
+      : { key: access.cle_interface },
+  ),
 });
 assert.equal(login.status, 200);
 const cookie = login.headers.get("set-cookie").split(";")[0];

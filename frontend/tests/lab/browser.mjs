@@ -1,4 +1,5 @@
 /** Run through the public UI with an isolated database and fictional accounts. Requires npm run build. */
+import { exerciseCollaboration } from "./collaboration-browser.mjs";
 import { chromium, expect } from "@playwright/test";
 import { spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, existsSync } from "node:fs";
@@ -98,6 +99,19 @@ try {
     .getByRole("button", { name: "Indenter le JSON", exact: true })
     .click();
   await expect(editor).toHaveValue(/\n/);
+  // Repeat the two clicks from the reported empty-object case without repositioning the cursor.
+  await editor.fill("{}");
+  await page.getByRole("button", { name: "Ajouter", exact: true }).click();
+  const insertButtons = page.getByRole("button", {
+    name: "Insérer dans le corps",
+  });
+  await insertButtons.nth(0).click();
+  await insertButtons.nth(1).click();
+  expect(JSON.parse(await editor.inputValue())).toEqual({
+    quantite: "{{quantite}}",
+    variable2: "{{variable2}}",
+  });
+  await expect(page.locator(".codePanel")).toContainText('"quantite": 3');
   await page.getByLabel("Sans corps", { exact: true }).check();
   await page.getByLabel("Statut HTTP").fill("204");
   await expect(page.locator(".codePanel")).toContainText("(sans corps)");
@@ -186,6 +200,7 @@ try {
   await page.getByLabel("Ouvrir le menu").click();
   await page.getByRole("button", { name: "Se déconnecter" }).click();
   await expect(page.getByLabel("Adresse e-mail")).toBeVisible();
+  await exerciseCollaboration(browser, url);
   if (errors.length) throw Error(errors.join("\n"));
   console.log(
     "Recette navigateur réussie : bibliothèque, filtres, brouillon, publication, exécution, preuves, archive et mobile.",
