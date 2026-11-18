@@ -254,6 +254,25 @@ export function LabApp() {
     }, 10000);
     return () => clearInterval(t);
   }, [route, mode, refresh]);
+  useEffect(() => {
+    if (mode !== "ready") return;
+    function sync() {
+      if (document.visibilityState === "visible")
+        void refresh().catch(() => {});
+    }
+    function onNavigate() {
+      if (
+        /^#\/(library|environment|editor|projects)(?:\/|$)/.test(location.hash)
+      )
+        sync();
+    }
+    document.addEventListener("visibilitychange", sync);
+    window.addEventListener("hashchange", onNavigate);
+    return () => {
+      document.removeEventListener("visibilitychange", sync);
+      window.removeEventListener("hashchange", onNavigate);
+    };
+  }, [mode, refresh]);
   if (mode === "login") return <Login onLogin={refresh} />;
   if (!ws)
     return (
@@ -375,7 +394,12 @@ export function LabApp() {
           <ChevronRight size={13} />
           <strong>{activeLink?.name || "Bibliothèque"}</strong>
           <span className="envTag">
-            <i /> Recette
+            <i />{" "}
+            {view === "editor" && item
+              ? item.environmentName
+              : view === "environment" && selectedEnv
+                ? selectedEnv.name
+                : "Test"}
           </span>
           <button
             className="iconBtn"
@@ -416,7 +440,9 @@ export function LabApp() {
                 key={id || "new"}
                 item={item}
                 initialEnvironment={
-                  view === "new" ? selectedEnv?.id : undefined
+                  view === "new" && selectedEnv?.writable
+                    ? selectedEnv.id
+                    : undefined
                 }
                 ws={ws}
                 project={project}

@@ -82,7 +82,7 @@ export type Workspace = {
   }[];
   items: Item[];
   runs: Run[];
-  runCounts: { project: string; total: number }[];
+  runCounts: { project: string; environment: string; total: number }[];
   destinations: Destination[];
   receiverReview: {
     id: string;

@@ -547,6 +547,11 @@ small {
 .simrow > code {
   font-size: 12px;
 }
+.projectCell small {
+  display: block;
+  color: var(--mute);
+  margin-top: 3px;
+}
 .rowMenu {
   position: relative;
 }

@@ -27,6 +27,7 @@ type Props = {
 export function Library({ ws, refresh, notify, project, environment }: Props) {
   const [search, setSearch] = useState(""),
     [service, setService] = useState(""),
+    [ownership, setOwnership] = useState(""),
     [status, setStatus] = useState(""),
     [menu, setMenu] = useState("");
   const scope = ws.items.filter(
@@ -36,6 +37,7 @@ export function Library({ ws, refresh, notify, project, environment }: Props) {
   );
   const rows = scope.filter(
     (i) =>
+      (!ownership || (ownership === "member" ? !!i.writable : !i.writable)) &&
       (!service || i.draft.service === service) &&
       (!status || itemState(i) === status) &&
       [i.draft.name, ...i.draft.tags, i.draft.service, i.project]
@@ -78,21 +80,38 @@ export function Library({ ws, refresh, notify, project, environment }: Props) {
         <div>
           <div className="eyeline">ESPACE DE TRAVAIL</div>
           <h1>{environment ? environment.name : "Bibliothèque"}</h1>
-          <p>Configurez, publiez et rejouez vos simulations HTTP.</p>
+          <p>
+            {environment
+              ? environment.project +
+                " · " +
+                (environment.writable
+                  ? "Votre environnement"
+                  : "Environnement partagé en lecture")
+              : "Configurez, publiez et rejouez vos simulations HTTP."}
+          </p>
         </div>
-        <a
-          className="btn primary"
-          href={
-            !ws.user.projects.length
-              ? "#/projects"
-              : environment?.writable
-                ? "#/new/" + environment.id
-                : "#/new"
-          }
-        >
-          <Plus size={17} />{" "}
-          {ws.user.projects.length ? "Nouvelle simulation" : "Créer un projet"}
-        </a>
+        <div className="actions">
+          {!!environment?.writable && (
+            <a className="btn" href={"#/sharing/environment/" + environment.id}>
+              Partager l’environnement
+            </a>
+          )}
+          <a
+            className="btn primary"
+            href={
+              !ws.user.projects.length
+                ? "#/projects"
+                : environment?.writable
+                  ? "#/new/" + environment.id
+                  : "#/new"
+            }
+          >
+            <Plus size={17} />{" "}
+            {ws.user.projects.length
+              ? "Nouvelle simulation"
+              : "Créer un projet"}
+          </a>
+        </div>
       </header>
       <section className="stats" aria-label="Vue d’ensemble">
         {[
@@ -102,7 +121,11 @@ export function Library({ ws, refresh, notify, project, environment }: Props) {
             icon: Workflow,
             title: "Exécutions conservées",
             value: ws.runCounts
-              .filter((r) => !project || r.project === project)
+              .filter(
+                (r) =>
+                  (!project || r.project === project) &&
+                  (!environment || r.environment === environment.id),
+              )
               .reduce((sum, r) => sum + r.total, 0),
           },
         ].map(({ icon: Icon, title, value }) => (
@@ -132,6 +155,19 @@ export function Library({ ws, refresh, notify, project, environment }: Props) {
               onChange={(e) => setSearch(e.target.value)}
             />
           </label>
+          {!environment && (
+            <label className="selectTool">
+              <select
+                value={ownership}
+                onChange={(e) => setOwnership(e.target.value)}
+                aria-label="Accès aux simulations"
+              >
+                <option value="">Tous les accès</option>
+                <option value="member">Mes projets</option>
+                <option value="shared">Partagées avec moi</option>
+              </select>
+            </label>
+          )}
           <label className="selectTool">
             <SlidersHorizontal size={15} />
             <select
@@ -191,7 +227,13 @@ export function Library({ ws, refresh, notify, project, environment }: Props) {
                       </small>
                     </span>
                   </a>
-                  <span className="projectCell">{i.project}</span>
+                  <span className="projectCell">
+                    {i.project}
+                    <small>
+                      {i.environmentName}
+                      {!i.writable ? " · Lecture partagée" : ""}
+                    </small>
+                  </span>
                   <span>
                     <span
                       className={

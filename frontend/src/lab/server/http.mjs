@@ -227,8 +227,8 @@ export async function administration(req, parts, db) {
         runs: runs(db, user),
         runCounts: db
           .prepare(
-            `SELECT s.project,count(*) total FROM runs r JOIN sims s ON r.sim=s.id
-          JOIN grants g ON g.project=s.project WHERE g.login=? GROUP BY s.project`,
+            `SELECT s.project,coalesce(json_extract(s.draft,'$.environment'),e.id) environment,count(*) total FROM runs r JOIN sims s ON r.sim=s.id JOIN environments e ON e.project=s.project AND e.primary_env=1
+          JOIN grants g ON g.project=s.project WHERE g.login=? GROUP BY s.project,environment`,
           )
           .all(user.name),
         destinations: [...allowed, ...receivers.own],
