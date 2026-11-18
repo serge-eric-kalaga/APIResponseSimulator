@@ -1,8 +1,8 @@
-# Relais — banc de test API
+# HTTP Response Simulator — banc de test API
 
-Relais remplace une dépendance HTTP en recette. Chaque appel conforme sélectionne une version publiée, résout ses variables et conserve une trace. Un webhook facultatif peut partir après la réponse, y compris lorsque celle-ci est une erreur HTTP.
+HTTP Response Simulator remplace une dépendance HTTP en recette. Chaque appel conforme sélectionne une version publiée, résout ses variables et conserve une trace. Un webhook facultatif peut partir après la réponse, y compris lorsque celle-ci est une erreur HTTP.
 
-![Bibliothèque Relais avec les quatre scénarios du pilote](docs/bibliotheque.png)
+![Bibliothèque HTTP Response Simulator avec les quatre scénarios du pilote](docs/bibliotheque.png)
 
 ## Démarrer sur son poste
 
@@ -31,7 +31,7 @@ Le volume nommé `relais_data` conserve les données entre deux démarrages. Le 
 
 ## Partager sur la même instance
 
-Sur plusieurs postes, les utilisateurs doivent ouvrir la même adresse de Relais. Pour héberger une instance d’équipe, placer la console derrière un proxy HTTPS, définir `RELAIS_ORIGIN` sur l’origine HTTPS exacte et conserver le volume de données. Les liens copiés depuis cette adresse ouvrent les ressources sur cette instance.
+Sur plusieurs postes, les utilisateurs doivent ouvrir la même adresse de l’instance HTTP Response Simulator. Pour héberger une instance d’équipe, placer la console derrière un proxy HTTPS, définir `RELAIS_ORIGIN` sur l’origine HTTPS exacte et conserver le volume de données. Les liens copiés depuis cette adresse ouvrent les ressources sur cette instance.
 
 Dans **Projets**, choisir **Partager** sur un projet. Dans l’éditeur, choisir **Partager la simulation** pour une seule simulation. Saisir l’adresse d’un utilisateur déjà inscrit, ou choisir **Public pour tous les utilisateurs connectés**. Le bouton **Copier le lien** permet de transmettre le lien interne. Le destinataire voit aussi les éléments dans sa bibliothèque, avec le filtre **Partagées avec moi**.
 

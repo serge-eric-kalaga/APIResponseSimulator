@@ -1,4 +1,4 @@
-name: Relais
+name: HTTP Response Simulator
 on: [push, pull_request]
 permissions:
   contents: read

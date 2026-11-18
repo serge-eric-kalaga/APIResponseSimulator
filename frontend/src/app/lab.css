@@ -106,33 +106,11 @@ small {
   color: var(--mute);
 }
 .brand {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  font-size: 26px;
-  font-weight: 670;
-  letter-spacing: -1.5px;
-}
-.brand > span:first-child {
-  display: grid;
-  place-items: center;
-  width: 35px;
-  height: 35px;
-  border-radius: 9px;
-  background: var(--orange);
-  color: white;
-}
-.brand .brandSep {
-  font-weight: 300;
-  font-size: 20px;
-  color: #798384;
-  margin-left: 2px;
-}
-.brand small {
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0;
-  color: inherit;
+  display: block;
+  width: min(275px, 100%);
+  height: auto;
+  flex: none;
+  color: #18272e;
 }
 .lab {
   min-height: 100vh;
@@ -150,7 +128,9 @@ small {
   height: 100dvh;
 }
 .sidebar .brand {
-  margin: 0 9px 57px;
+  width: calc(100% - 12px);
+  margin: 0 6px 48px;
+  color: #f7f8f4;
 }
 .sideLabel,
 .eyeline,
@@ -592,8 +572,7 @@ small {
   margin: 10px;
 }
 .loading .brand {
-  justify-content: center;
-  margin-bottom: 20px;
+  margin: 0 auto 20px;
 }
 .editorLayout {
   display: grid;
@@ -1043,6 +1022,10 @@ textarea {
   }
   .sidebar {
     display: none;
+  }
+  .sidebar .brand {
+    width: calc(100% - 38px);
+    margin-left: 0;
   }
   .sidebar.show {
     display: flex;

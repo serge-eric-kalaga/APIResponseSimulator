@@ -1,4 +1,4 @@
-# Console Relais
+# Console HTTP Response Simulator
 
 La commande `npm run dev` démarre la console Next.js, le worker et le récepteur local de recette. La version compilée démarre avec `npm run build && npm start`.
 

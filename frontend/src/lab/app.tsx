@@ -8,7 +8,6 @@ import {
   CircleDot,
   Command,
   Folder,
-  Layers2,
   LibraryBig,
   LogOut,
   Menu,
@@ -25,19 +24,9 @@ import { Library } from "./library";
 import { Editor } from "./editor";
 import { History } from "./history";
 import { Health } from "./health";
+import { Brand } from "./brand";
 import { RunDetail } from "./run-detail";
 
-function Brand() {
-  return (
-    <div className="brand">
-      <span>
-        <Layers2 size={23} strokeWidth={2.4} />
-      </span>
-      Relais<span className="brandSep">/</span>
-      <small>Console</small>
-    </div>
-  );
-}
 function Login({ onLogin }: { onLogin: () => Promise<void> }) {
   const [mode, setMode] = useState<"login" | "register" | "migrate">("login");
   const [email, setEmail] = useState(""),

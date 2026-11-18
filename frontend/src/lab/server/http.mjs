@@ -74,7 +74,7 @@ function errorResponse(error) {
     return json({ error: error.message, source: "relais" }, error.status, {
       "x-lab-error": "1",
     });
-  console.error("Erreur interne Relais", error?.code || error?.name);
+  console.error("Erreur interne HTTP Response Simulator", error?.code || error?.name);
   return json(
     {
       error: "Le simulateur ne peut pas enregistrer cette opération.",
