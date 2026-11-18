@@ -1,13 +1,5 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
-import {
-  ChevronRight,
-  Copy,
-  Folder,
-  Layers2,
-  Menu,
-  RefreshCw,
-  Target,
-} from "lucide-react";
+import { ChevronRight, Copy, RefreshCw, Target } from "lucide-react";
 import { api, stateName, utc } from "./client";
 import type { Proof } from "./client";
 import { TraceInspector } from "./trace-inspector";
@@ -15,7 +7,6 @@ import s from "./trace.module.css";
 
 type Props = {
   id: string;
-  sections: { id: string; name: string }[];
   notify: (message: string) => void;
 };
 type Action = "cancel" | "replay";
@@ -118,72 +109,7 @@ function Timeline({
   );
 }
 
-function TraceHeader({
-  sections,
-  project,
-}: {
-  sections: Props["sections"];
-  project?: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const toggle = useRef<HTMLButtonElement>(null);
-  return (
-    <header
-      className={s.bar}
-      onKeyDown={(event) => {
-        if (event.key === "Escape" && open) {
-          setOpen(false);
-          toggle.current?.focus();
-        }
-      }}
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
-      }}
-    >
-      <div className={s.barInner}>
-        <a className={s.logo} href="#/library">
-          <i>
-            <Layers2 aria-hidden="true" />
-          </i>
-          Relais
-        </a>
-        <button
-          className={s.navToggle}
-          ref={toggle}
-          aria-label={open ? "Fermer le menu" : "Ouvrir le menu"}
-          aria-expanded={open}
-          aria-controls="trace-nav"
-          onClick={() => setOpen(!open)}
-        >
-          <Menu />
-        </button>
-        <nav
-          id="trace-nav"
-          className={[s.nav, open && s.open].filter(Boolean).join(" ")}
-          aria-label="Navigation principale"
-        >
-          {sections.map((link) => (
-            <a
-              key={link.id}
-              href={"#/" + link.id}
-              aria-current={link.id === "runs" ? "page" : undefined}
-            >
-              {link.id === "projects" ? "Projets" : link.name}
-            </a>
-          ))}
-        </nav>
-        {project && (
-          <div className={s.scope}>
-            <Folder />
-            <b>{project}</b>
-          </div>
-        )}
-      </div>
-    </header>
-  );
-}
-
-export function RunDetail({ id, sections, notify }: Props) {
+export function RunDetail({ id, notify }: Props) {
   const [e, set] = useState<Proof | null>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
@@ -263,21 +189,7 @@ export function RunDetail({ id, sections, notify }: Props) {
   }
   return (
     <div className={s.screen}>
-      <a
-        className="skip"
-        href="#main"
-        onClick={(event) => {
-          event.preventDefault();
-          document.getElementById("main")?.focus();
-        }}
-      >
-        Aller au contenu
-      </a>
-      <TraceHeader
-        sections={sections}
-        project={e?.trace.project}
-      />
-      <main className={s.page} id="main" tabIndex={-1}>
+      <div className={s.page}>
         <div className={s.crumb}>
           <a href="#/runs">Exécutions</a>
           <ChevronRight />
@@ -351,6 +263,8 @@ export function RunDetail({ id, sections, notify }: Props) {
                 <section className={s.facts}>
                   <h2>Références</h2>
                   <dl>
+                    <dt>Projet</dt>
+                    <dd>{e.trace.project}</dd>
                     <dt>Simulation</dt>
                     <dd>
                       <a href={"#/editor/" + e.sim} title={e.sim}>
@@ -378,7 +292,7 @@ export function RunDetail({ id, sections, notify }: Props) {
             </div>
           </>
         )}
-      </main>
+      </div>
     </div>
   );
 }

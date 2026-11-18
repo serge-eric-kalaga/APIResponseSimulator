@@ -305,7 +305,6 @@ export function LabApp() {
       </button>
     </div>
   );
-  if (view === "runs" && id) return <><RunDetail key={id} id={id} sections={links} notify={notify}/>{toast}</>;
   return (
     <div
       className="lab"
@@ -488,6 +487,8 @@ export function LabApp() {
                 notify={notify}
               />
             )
+          ) : view === "runs" && id ? (
+            <RunDetail key={id} id={id} notify={notify} />
           ) : view === "runs" ? (
             <History
               rows={ws.runs.filter((r) => !project || r.project === project)}

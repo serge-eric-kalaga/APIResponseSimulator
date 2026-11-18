@@ -28,6 +28,15 @@ export async function exerciseTrace(context, origin, env) {
       '{"client":"recette","password":"prive"}',
     );
     const tab = (name) => page.getByRole("tab", { name, exact: true });
+    const sidebar = page.locator("aside.sidebar");
+    const originalMenu = await sidebar.elementHandle();
+    await sidebar.getByRole("link", { name: "Exécutions" }).click();
+    await page.locator('a[href="#/runs/' + id + '"]').click();
+    expect(
+      await originalMenu.evaluate(
+        (node) => node === document.querySelector("aside.sidebar"),
+      ),
+    ).toBe(true);
     const panel = page.getByRole("tabpanel");
     await expect(tab("Réponse")).toHaveAttribute("aria-selected", "true");
     await expect(panel).toContainText("REQUEST_REJECTED");
@@ -36,7 +45,7 @@ export async function exerciseTrace(context, origin, env) {
       page.locator("header").getByText("422", { exact: true }),
     ).toBeVisible();
     await expect(
-      page.locator("header").getByText("Atlas", { exact: true }),
+      page.locator("main dd").filter({ hasText: /^Atlas$/ }),
     ).toBeVisible();
     await page
       .getByRole("button", { name: "Copier le contenu affiché" })
@@ -44,7 +53,10 @@ export async function exerciseTrace(context, origin, env) {
     expect(
       JSON.parse(await page.evaluate(() => navigator.clipboard.readText())),
     ).toEqual({ etat: "refused", code: "REQUEST_REJECTED" });
-    await page.getByText("En-têtes HTTP", { exact: true }).click();
+    await expect(
+      page.locator("aside.sidebar nav a[aria-current=page]"),
+    ).toHaveText("Exécutions");
+    await page.getByText("En-têtes HTTP", {exact:true}).click();
     await expect(
       panel.getByText("content-type", { exact: true }),
     ).toBeVisible();
@@ -53,7 +65,7 @@ export async function exerciseTrace(context, origin, env) {
     await expect(tab("Requête")).toBeFocused();
     await expect(panel).toContainText("[masqué]");
     await expect(panel).not.toContainText("prive");
-    await page.keyboard.press("End");
+    await page.keyboard.press("ArrowRight");
     await expect(tab("Variables")).toBeFocused();
     await expect(panel).toContainText("{}");
     const refresh = page.waitForResponse(
