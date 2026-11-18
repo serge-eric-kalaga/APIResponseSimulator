@@ -14,7 +14,11 @@
     "api:generate": "node scripts/generate-api.mjs",
     "api:check": "node scripts/generate-api.mjs --check",
     "test:generated-api": "node tests/generated-api.mjs",
-    "test:admin-cache": "node --test tests/admin-cache.test.mjs"
+    "test:admin-cache": "node --test tests/admin-cache.test.mjs",
+    "lab:init": "node scripts/lab-admin.mjs init",
+    "lab:worker": "node scripts/lab-worker.mjs",
+    "lab:receiver": "node scripts/lab-receiver.mjs",
+    "test:lab": "node --test tests/lab/*.test.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.2",
