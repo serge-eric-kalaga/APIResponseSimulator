@@ -11,7 +11,7 @@ export function claim(db, now = Date.now()) {
   return transaction(db, () => {
     const row = db
       .prepare(
-        `SELECT j.*,s.project FROM jobs j JOIN runs r ON r.id=j.run JOIN sims s ON s.id=r.sim
+        `SELECT j.*,s.project,coalesce(rp.after_attempt,0) offset FROM jobs j LEFT JOIN replays rp ON rp.job=j.id JOIN runs r ON r.id=j.run JOIN sims s ON s.id=r.sim
       WHERE (j.state IN ('pending','retry') AND j.due<=?) OR (j.state='sending' AND j.until<=?) ORDER BY j.due LIMIT 1`,
       )
       .get(now, now);
@@ -20,7 +20,7 @@ export function claim(db, now = Date.now()) {
       db.prepare(
         "UPDATE attempts SET finished=?,outcome='Résultat inconnu après interruption' WHERE job=? AND number=?",
       ).run(now, row.id, row.count);
-      if (row.count >= MAX_TRIES) {
+      if (row.count - row.offset >= MAX_TRIES) {
         db.prepare(
           "UPDATE jobs SET state='failed',lease=NULL,until=NULL WHERE id=?",
         ).run(row.id);
@@ -43,11 +43,13 @@ export function finish(db, job, code, reason, temporary, now = Date.now()) {
     const state =
       code >= 200 && code < 300
         ? "delivered"
-        : temporary && job.count < MAX_TRIES
+        : temporary && job.count - job.offset < MAX_TRIES
           ? "retry"
           : "failed";
     const due =
-      state === "retry" ? now + 1000 * (job.count === 1 ? 5 : 30) : now;
+      state === "retry"
+        ? now + 1000 * (job.count - job.offset === 1 ? 5 : 30)
+        : now;
     const changed = db
       .prepare(
         "UPDATE jobs SET state=?,due=?,lease=NULL,until=NULL WHERE id=? AND lease=?",
@@ -70,6 +72,29 @@ export function cancel(db, user, id) {
       .run(Date.now(), job.id).changes
   )
     throw new Problem(409, "L’envoi a déjà commencé ou est terminé.");
+}
+/** Deliberate duplicate for QA: preserve the original outbox envelope and idempotency key. */
+export function replayDelivery(db, user, id) {
+  return transaction(db, () => {
+    const { job } = execution(db, user, id);
+    if (!job || job.state !== "delivered" || job.replayed)
+      throw new Problem(
+        409,
+        "Seule une notification livrée peut être rejouée une fois.",
+      );
+    const now = Date.now();
+    const { n } = db
+      .prepare(
+        "SELECT count(*) n FROM jobs WHERE state IN ('pending','retry','sending')",
+      )
+      .get();
+    if (n >= 1000) throw new Problem(503, "File de notifications pleine.");
+    db.prepare("INSERT INTO replays VALUES(?,?,?)").run(job.id, now, job.count);
+    db.prepare("UPDATE jobs SET state='pending',due=? WHERE id=?").run(
+      now,
+      job.id,
+    );
+  });
 }
 /** Node's native client never follows redirects. Connect directly to the approved
  * address with the original Host and TLS servername, without a second DNS lookup. */

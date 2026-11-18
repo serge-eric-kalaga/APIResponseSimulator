@@ -435,7 +435,7 @@ export function Editor({
                 onChange={(e) => edit("expected", e.target.value)}
               />
             </Field>
-            <Field label="SHA du code testé">
+            <Field label="SHA du code testé" error={err("sha")}>
               <input
                 value={d.sha}
                 onChange={(e) => edit("sha", e.target.value)}

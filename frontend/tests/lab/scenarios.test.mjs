@@ -121,3 +121,48 @@ test("delivery policy rejects unlisted, mismatched, internal and unapproved targ
     );
   assert.throws(() => target("reader", "QA", "http://other", entries));
 });
+test("secrets copied into free text and aliased response fields are removed from evidence", () => {
+  const { db, user, d, sim, call } = setup();
+  const v = {
+    ...newVariable(),
+    type: "string",
+    mode: "input",
+    source: "access_token",
+    name: "label",
+    value: "fallback",
+  };
+  save(
+    db,
+    user,
+    {
+      ...d,
+      variables: [v],
+      body: '{"label":"with {{label}}"}',
+      hookBody: '{"ref":"{{label}}"}',
+    },
+    sim.id,
+    1,
+    true,
+    entries,
+  );
+  const r = trigger(
+    db,
+    { ...call, raw: '{"access_token":"private-fixture"}' },
+    entries,
+  );
+  assert.match(r.body, /private-fixture/);
+  assert.doesNotMatch(
+    JSON.stringify(execution(db, user, r.id)),
+    /private-fixture/,
+  );
+  db.close();
+});
+test("a failed outbox insert also rolls back the execution", () => {
+  const { db, call } = setup();
+  db.exec(
+    "CREATE TRIGGER stop_insert BEFORE INSERT ON jobs BEGIN SELECT RAISE(ABORT,'simulated persistence failure'); END",
+  );
+  assert.throws(() => trigger(db, call, entries));
+  assert.equal(db.prepare("SELECT count(*) n FROM runs").get().n, 0);
+  db.close();
+});

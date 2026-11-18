@@ -3,7 +3,7 @@ import { draftSchema, compile } from "../model.ts";
 import { granted, hash } from "./access.mjs";
 import { limit, Problem, transaction } from "./db.mjs";
 import { target } from "./targets.mjs";
-import { mask, bodyTrace, headerTrace } from "./traces.mjs";
+import { traceFilter, headerTrace } from "./traces.mjs";
 
 function dehydrate(row) {
   if (!row) throw new Problem(404, "Simulation introuvable.");
@@ -129,41 +129,23 @@ export function trigger(
         planned: now + 1000 * d.delay,
       };
     }
-    const sensitiveValues = d.variables
-      .filter(
-        (v) =>
-          v.mode === "input" &&
-          Object.hasOwn(input, v.source) &&
-          JSON.stringify(mask({ [v.source]: input[v.source] })) !==
-            JSON.stringify({ [v.source]: input[v.source] }),
-      )
-      .map((v) => result.variables[v.name]);
-    const scrub = (v) =>
-      sensitiveValues.some((s) => s !== null && v === s)
-        ? "[masqué]"
-        : Array.isArray(v)
-          ? v.map(scrub)
-          : v && typeof v === "object"
-            ? Object.fromEntries(
-                Object.entries(v).map(([k, x]) => [k, scrub(x)]),
-              )
-            : v;
-    const trace = scrub({
-      name: d.name,
+    const filter = traceFilter(d.variables, result.variables);
+    const trace = {
+      name: filter.evidence(d.name),
       project: d.project,
       method,
       path,
       status: d.status,
-      variables: mask(result.variables),
-      incoming: bodyTrace(raw),
+      variables: filter.evidence(result.variables),
+      incoming: filter.body(raw),
       requestHeaders: headerTrace(headers),
-      response: bodyTrace(result.body),
+      response: filter.body(result.body),
       responseHeaders: headerTrace(responseHeaders),
-      webhook: result.hook ? bodyTrace(result.hook.body) : null,
+      webhook: result.hook ? filter.body(result.hook.body) : null,
       hookHeaders: result.hook ? headerTrace(result.hook.headers) : {},
-      expected: d.expected,
+      expected: filter.evidence(d.expected),
       sha: /^[a-f0-9]{7,64}$/i.test(sha) ? sha : d.sha,
-    });
+    };
     db.prepare("INSERT INTO runs VALUES(?,?,?,?,?)").run(
       run,
       id,
@@ -208,7 +190,9 @@ export function execution(db, user, id) {
   granted(user, trace.project);
   const job =
     db
-      .prepare("SELECT id,dest,planned,due,state,count FROM jobs WHERE run=?")
+      .prepare(
+        "SELECT id,dest,planned,due,state,count,requested replayed,after_attempt FROM jobs LEFT JOIN replays ON replays.job=jobs.id WHERE run=?",
+      )
       .get(id) || null;
   const attempts = job
     ? db

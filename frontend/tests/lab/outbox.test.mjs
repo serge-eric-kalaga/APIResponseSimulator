@@ -94,3 +94,20 @@ test("revocation, permanent refusal, cancellation and retention", async () => {
     db.close();
   }
 });
+test("explicit QA duplicate can reuse the delivered envelope exactly once", async () => {
+  const { db, id, user } = setup(":memory:");
+  const receipts = [];
+  const receive = async (j) => {
+    receipts.push([j.id, j.run, j.payload]);
+    return 204;
+  };
+  await deliverOne(db, entries, receive, 130000);
+  const { replayDelivery } = await import("../../src/lab/server/outbox.mjs");
+  replayDelivery(db, user, id);
+  assert.throws(() => replayDelivery(db, user, id));
+  await deliverOne(db, entries, receive);
+  assert.deepEqual(receipts[0], receipts[1]);
+  assert.equal(execution(db, user, id).attempts.length, 2);
+  assert.throws(() => replayDelivery(db, user, id));
+  db.close();
+});

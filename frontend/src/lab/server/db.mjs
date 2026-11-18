@@ -28,6 +28,7 @@ export function openDatabase(
     CREATE INDEX IF NOT EXISTS jobs_due ON jobs(state,due);
     CREATE TABLE IF NOT EXISTS attempts(job TEXT REFERENCES jobs(id) ON DELETE CASCADE, number INTEGER, started INTEGER NOT NULL,
       finished INTEGER, code INTEGER, outcome TEXT NOT NULL, PRIMARY KEY(job,number));
+    CREATE TABLE IF NOT EXISTS replays(job TEXT PRIMARY KEY REFERENCES jobs(id) ON DELETE CASCADE, requested INTEGER NOT NULL, after_attempt INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS limits(bucket TEXT PRIMARY KEY, window INTEGER NOT NULL, hits INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS worker_status(id INTEGER PRIMARY KEY CHECK(id=1), seen INTEGER);
   `);

@@ -20,6 +20,8 @@ export type Run = {
   state: string | null;
 };
 export type Job = {
+  replayed: number | null;
+  after_attempt: number | null;
   id: string;
   dest: string;
   planned: number;

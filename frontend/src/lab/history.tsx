@@ -178,6 +178,14 @@ export function RunDetail({
                   </small>
                 </li>
               ))}
+              {j?.replayed && (
+                <li>
+                  <strong>Doublon de recette demandé</strong>
+                  <small>
+                    {utc(j.replayed)} · Même identifiant de notification.
+                  </small>
+                </li>
+              )}
               {j?.state === "cancelled" && (
                 <li>
                   <strong>Notification annulée</strong>
@@ -190,6 +198,26 @@ export function RunDetail({
                 <span className="badge">{stateName(j.state)}</span>{" "}
                 {j.state === "retry" && "Prochaine tentative le " + utc(j.due)}
               </p>
+            )}
+            {j?.state === "delivered" && !j.replayed && (
+              <button
+                className="btn small"
+                onClick={async () => {
+                  if (
+                    !window.confirm(
+                      "Renvoyer le même webhook au récepteur de test avec sa clé d’idempotence initiale ?",
+                    )
+                  )
+                    return;
+                  try {
+                    set(await api<Proof>("runs/" + id + "/replay", {}));
+                  } catch (err) {
+                    notify((err as Error).message);
+                  }
+                }}
+              >
+                Rejouer la notification
+              </button>
             )}
             {j && ["pending", "retry"].includes(j.state) && (
               <button

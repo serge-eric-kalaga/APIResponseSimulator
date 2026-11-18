@@ -218,7 +218,9 @@ function headerMap(raw: string, field: string): Record<string, string> {
   for (const [k, v] of Object.entries(map)) {
     // Only application metadata is editable. Cookies, redirects and transport headers belong to the server.
     if (
-      !/^x-[\w-]{1,80}$/i.test(k) ||
+      !/^(?:x-[\w-]{1,80}|retry-after|etag|content-language|last-modified|allow|www-authenticate|ratelimit(?:-limit|-remaining|-reset)?)$/i.test(
+        k,
+      ) ||
       /^(x-lab-|x-forwarded-|x-middleware-|x-nextjs-|x-matched-path$|x-accel-|x-sendfile$|x-correlation-id$|x-notification-id$)/i.test(
         k,
       ) ||
@@ -228,12 +230,14 @@ function headerMap(raw: string, field: string): Record<string, string> {
     )
       fail(
         field,
-        `En-tête interdit ou invalide : ${k}. Utilisez un en-tête X- applicatif.`,
+        `En-tête interdit ou invalide : ${k}. Utilisez un en-tête applicatif autorisé.`,
       );
   }
   return map;
 }
 export function compile(d: Draft, input: Record<string, unknown> = {}) {
+  if (d.sha && !/^[a-f0-9]{7,64}$/i.test(d.sha))
+    fail("sha", "Indiquez un SHA hexadécimal (7 à 64 caractères).");
   if (!d.name.trim()) fail("name", "Donnez un nom à la simulation.");
   if (
     !/^\/[A-Za-z0-9._~/-]*$/.test(d.path) ||

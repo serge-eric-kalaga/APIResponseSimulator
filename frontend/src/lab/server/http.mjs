@@ -13,7 +13,7 @@ import {
   scenario,
   trigger,
 } from "./scenarios.mjs";
-import { cancel } from "./outbox.mjs";
+import { cancel, replayDelivery } from "./outbox.mjs";
 
 export async function readBody(req, max = 65536) {
   if (Number(req.headers.get("content-length")) > max)
@@ -57,7 +57,11 @@ function errorResponse(error) {
       422,
     );
   if (error instanceof FieldError)
-    return json({ error: error.message, field: error.field }, 422);
+    return json(
+      { error: error.message, field: error.field, source: "relais" },
+      422,
+      { "x-lab-error": "1" },
+    );
   if (error instanceof Problem)
     return json({ error: error.message, source: "relais" }, error.status, {
       "x-lab-error": "1",
@@ -229,6 +233,10 @@ export async function administration(req, parts, db = database()) {
     }
     if (resource === "runs" && id) {
       if (!write) return json(execution(db, user, id));
+      if (action === "replay") {
+        replayDelivery(db, user, id);
+        return json(execution(db, user, id));
+      }
       if (action === "cancel") {
         cancel(db, user, id);
         return json(execution(db, user, id));
