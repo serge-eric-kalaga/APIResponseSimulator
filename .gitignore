@@ -63,6 +63,5 @@ Thumbs.db
 # Copie locale des accès du pilote Docker.
 data-acces-pilote.json
 
-# Documentation du produit.
-!/docs/
-!/docs/**
+# Documentation locale du produit.
+/docs/
