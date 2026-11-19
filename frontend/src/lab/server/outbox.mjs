@@ -169,7 +169,7 @@ export async function deliverOne(
     temporary = !(error instanceof Problem);
     reason = temporary
       ? "Échec réseau ou délai dépassé"
-      : "Destination ou secret non autorisé";
+      : "Destination ou secret indisponible";
   }
   finish(db, job, code, reason, temporary);
   return true;

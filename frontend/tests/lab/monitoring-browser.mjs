@@ -54,30 +54,14 @@ export async function exerciseMonitoring(context, origin) {
     await expect(
       page.getByRole("heading", { name: "État technique" }),
     ).toBeVisible();
-    const tab = page.getByRole("tab", { name: /Autorisations/ });
-    await page.getByRole("tab", { name: "Destinations autorisées" }).focus();
-    await page.keyboard.press("ArrowRight");
-    await expect(tab).toBeFocused();
-    const panel = page.getByRole("tabpanel", { name: /Autorisations/ });
-    const revoke = panel.getByRole("button", { name: "Retirer", exact: true });
-    await revoke.click();
-    await page.keyboard.press("Escape");
-    await expect(revoke).toBeFocused();
-    await revoke.click();
-    const dialog = page.getByRole("dialog");
-    await expect(dialog).toContainText(url);
-    await dialog.getByRole("button", { name: "Retirer", exact: true }).click();
-    await expect(panel).toContainText(project + " · Révoquée");
+    const receivers = page.getByRole("region", { name: "URL de réception" });
+    await expect(receivers).toContainText(project);
+    await expect(receivers).toContainText(url);
+    await expect(page.getByRole("tab", { name: /Autorisations/ })).toHaveCount(
+      0,
+    );
     await page.reload();
-    await tab.click();
-    await expect(panel).toContainText(project + " · Révoquée");
-    await panel.getByRole("button", { name: "Autoriser" }).click();
-    await dialog
-      .getByRole("button", { name: "Autoriser", exact: true })
-      .click();
-    await expect(panel).toContainText(project + " · Autorisée");
-    await page.getByRole("tab", { name: "Destinations autorisées" }).click();
-    await expect(page.getByRole("tabpanel")).toContainText(project);
+    await expect(receivers).toContainText(project);
     for (const width of [320, 390, 820, 1360]) {
       await page.setViewportSize({ width, height: 875 });
       await expect(page.locator("body")).toHaveJSProperty("scrollWidth", width);

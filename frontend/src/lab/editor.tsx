@@ -164,9 +164,10 @@ export function Editor({
   );
   const selectedReceiver = receivers.find((x) => x.id === d.destination);
   async function registerUrl() {
-    if (selectedReceiver) return selectedReceiver;
+    if (selectedReceiver?.status === "active") return selectedReceiver;
     const r = await api<{ id: string; status: string }>("receivers", {
-      url: d.destination,
+      url: selectedReceiver?.url ?? d.destination,
+      id: selectedReceiver?.id,
       project: d.project,
     });
     await refresh();
@@ -202,15 +203,12 @@ export function Editor({
       if (publish && validation) throw validation;
       let draft = d;
       if (publish && d.webhook) {
-        const r = await registerUrl();
-        if (r.status !== "active")
-          throw new FieldError(
-            "destination",
-            r.status === "pending"
-              ? "Cette URL attend l’autorisation du pilote. Vous pouvez enregistrer le brouillon."
-              : "L’autorisation de cette URL a été retirée.",
-          );
-        draft = { ...d, destination: r.id };
+        try {
+          const r = await registerUrl();
+          draft = { ...d, destination: r.id };
+        } catch (e) {
+          throw new FieldError("destination", (e as Error).message);
+        }
       }
       const s = await api<Item>(
         item
@@ -504,14 +502,8 @@ export function Editor({
                       }
                     />
                   </Field>
-                  {selectedReceiver ? (
-                    <p className="receiverState">
-                      {selectedReceiver.status === "active"
-                        ? "URL autorisée"
-                        : selectedReceiver.status === "pending"
-                          ? "Autorisation en attente"
-                          : "Autorisation retirée"}
-                    </p>
+                  {selectedReceiver?.status === "active" ? (
+                    <p className="receiverState">URL enregistrée</p>
                   ) : (
                     <button
                       className="btn small"
@@ -519,12 +511,8 @@ export function Editor({
                       onClick={async () => {
                         setBusy(true);
                         try {
-                          const r = await registerUrl();
-                          notify(
-                            r.status === "active"
-                              ? "URL autorisée."
-                              : "URL enregistrée. Validation disponible dans Notifications pour l’administrateur.",
-                          );
+                          await registerUrl();
+                          notify("URL enregistrée.");
                         } catch (e) {
                           setIssue({
                             field: "destination",
@@ -538,7 +526,7 @@ export function Editor({
                       Enregistrer l’URL
                     </button>
                   )}
-                  <Field label="Destination autorisée">
+                  <Field label="Destination enregistrée">
                     <select
                       value={
                         selectedReceiver?.status === "active"

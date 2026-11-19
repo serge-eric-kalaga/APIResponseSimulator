@@ -149,7 +149,9 @@ try {
   await page.getByRole("button", { name: "400", exact: true }).click();
   await tab("Webhook").click();
   await page.getByLabel("Programmer une notification POST").check();
-  await page.getByLabel("Destination autorisée").selectOption("pilot-receiver");
+  await page
+    .getByLabel("Destination enregistrée")
+    .selectOption("pilot-receiver");
   await page.getByRole("button", { name: "Publier une version" }).click();
   const publish = page.getByRole("dialog", { name: "Publier la version v1" });
   await expect(publish).toContainText("HTTP 400");

@@ -288,7 +288,7 @@ export function compile(d: Draft, input: Record<string, unknown> = {}) {
   )
     fail("delay", "Le délai doit être compris entre 0 et 86 400 secondes.");
   if (d.webhook && !d.destination)
-    fail("destination", "Choisissez une destination autorisée.");
+    fail("destination", "Saisissez une URL de réception ou choisissez une destination enregistrée.");
   const hook = d.webhook
     ? {
         body: render(d.hookBody, variables, "hookBody"),

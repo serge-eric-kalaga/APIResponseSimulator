@@ -49,7 +49,7 @@ export function target(id, project, snapshot, entries = destinations()) {
   )
     throw new Problem(
       422,
-      "La destination doit être un service HTTPS de test approuvé à adresse publique fixe.",
+      "La destination doit être un service HTTPS de test avec une adresse IPv4 publique.",
     );
   return entry;
 }

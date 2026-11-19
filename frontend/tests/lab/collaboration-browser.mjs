@@ -84,7 +84,7 @@ export async function exerciseCollaboration(browser, origin) {
       .fill("http://127.0.0.1:3922/recette");
     await owner.getByRole("button", { name: "Enregistrer l’URL" }).click();
     await expect(
-      owner.getByText("URL autorisée", { exact: true }),
+      owner.getByText("URL enregistrée", { exact: true }),
     ).toBeVisible();
     await owner.getByRole("tab", { name: "En-têtes", exact: true }).click();
     await owner.getByLabel("En-têtes POST").fill("[]");

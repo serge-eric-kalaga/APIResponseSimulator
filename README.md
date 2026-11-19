@@ -53,12 +53,12 @@ Le résultat attendu est un statut `202`, le corps `{"etat":"pending"}` et un en
 
 **Variables typées.** Dans un corps JSON, `{"quantite":"{{quantite}}"}` produit `{"quantite":3}` si la variable est un entier de valeur 3. Dans `"lot-{{quantite}}"`, le résultat est la chaîne `"lot-3"`. Le mode **Champ entrant facultatif** lit un champ de premier niveau du JSON reçu et utilise la valeur par défaut si ce champ est absent. Dans un corps XML, les valeurs insérées sont échappées dans le texte et les attributs.
 
-**URL de réception.** Activez le webhook et sélectionnez une destination autorisée, ou saisissez une **URL de réception** puis cliquez sur **Enregistrer l’URL**. Une nouvelle URL externe doit être approuvée par un opérateur dans **Notifications → Autorisations**. Le récepteur de recette fourni permet de tester localement une livraison lorsqu’il est activé pour le projet.
+**URL de réception.** Activez le webhook, saisissez son **URL de réception** HTTPS et publiez la simulation. Le serveur vérifie le domaine et enregistre la destination pour le projet. **Enregistrer l’URL** permet aussi de la préparer avant publication. Pour un essai local, sélectionnez le récepteur de recette fourni.
 
 ## Suivre les exécutions et les notifications
 
 - **Exécutions** regroupe les 250 appels autorisés les plus récents par jour UTC. Filtrez par projet, date, simulation, famille de statut HTTP ou état du webhook. Ouvrez un appel pour consulter sa chronologie, ses variables résolues, la requête, la réponse et leurs en-têtes dans l’inspecteur HTTP. Les traces masquent les données sensibles selon les règles de conservation.
-- **Notifications** affiche le dernier signal du worker, le retard de la file, les livraisons en attente, livrées ou en échec et les destinations autorisées. Pour examiner les tentatives d’un webhook précis, ouvrez son exécution. Après une livraison réussie, **Rejouer la notification** permet de tester une fois le même message avec la même clé d’idempotence.
+- **Notifications** affiche le dernier signal du worker, le retard de la file, les livraisons en attente, livrées ou en échec et les URL de réception enregistrées. Pour examiner les tentatives d’un webhook précis, ouvrez son exécution. Après une livraison réussie, **Rejouer la notification** permet de tester une fois le même message avec la même clé d’idempotence.
 
 ## Partager un projet ou une simulation
 

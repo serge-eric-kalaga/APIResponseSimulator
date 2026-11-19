@@ -488,7 +488,7 @@ export function LabApp() {
               resetProject={() => setProject("")}
             />
           ) : view === "health" ? (
-            <Health ws={ws} refresh={refresh} notify={notify} />
+            <Health ws={ws} />
           ) : (
             <Library
               ws={ws}

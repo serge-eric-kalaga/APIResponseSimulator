@@ -16,11 +16,7 @@ import {
   trigger,
 } from "./scenarios.mjs";
 import { newProject, projects, sharing } from "./workspaces.mjs";
-import {
-  registerReceiver,
-  receiverList,
-  reviewReceiver,
-} from "./receivers.mjs";
+import { registerReceiver, receiverList } from "./receivers.mjs";
 import { cancel, replayDelivery } from "./outbox.mjs";
 
 export async function readBody(req, max = 65536) {
@@ -124,7 +120,7 @@ function technical(db, user) {
       .prepare(
         `SELECT count(*) total FROM attempts a JOIN jobs j ON a.job=j.id JOIN runs r ON j.run=r.id
       JOIN sims s ON r.sim=s.id JOIN grants g ON s.project=g.project
-      WHERE g.login=? AND a.outcome='Destination ou secret non autorisé'`,
+      WHERE g.login=? AND a.outcome IN ('Destination ou secret indisponible','Destination ou secret non autorisé')`,
       )
       .get(user.name).total,
     online: !!heartbeat && Date.now() - heartbeat < 30000,
@@ -181,11 +177,8 @@ export async function administration(req, parts, db) {
       db.prepare("DELETE FROM sessions WHERE token=?").run(hash(cookie));
       return json({ ok: true }, 200, { "set-cookie": cookieValue("", 0) });
     }
-    if (resource === "receivers" && write) {
-      if (!id) return json(registerReceiver(db, user, payload), 201);
-      await reviewReceiver(db, user, id, payload.action);
-      return json({ ok: true });
-    }
+    if (resource === "receivers" && write && !id)
+      return json(await registerReceiver(db, user, payload), 201);
     if (resource === "projects" && write)
       return json(newProject(db, user, payload.name), 201);
     if (resource === "sharing" && action)
@@ -225,9 +218,7 @@ export async function administration(req, parts, db) {
           JOIN grants g ON g.project=s.project WHERE g.login=? GROUP BY s.project`,
           )
           .all(user.name),
-        destinations: [...allowed, ...receivers.own],
-        canReviewReceivers: receivers.canReview,
-        receiverReview: receivers.review,
+        destinations: [...allowed, ...receivers],
         health: technical(db, user),
       });
     }
