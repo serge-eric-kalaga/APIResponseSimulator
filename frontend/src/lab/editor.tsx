@@ -16,7 +16,7 @@ import { EditorSettings } from "./editor-settings";
 import { EditorPayload, type Part } from "./editor-payload";
 import { EditorPreview, previewText } from "./editor-preview";
 import s from "./editor.module.css";
-import { blank, compile, FieldError } from "./model";
+import { blank, compile, FieldError, maxResponseDelaySeconds } from "./model";
 import type { Draft } from "./model";
 import { navigate, api, pretty, RequestError, utc } from "./client";
 import type { Item, Version, Workspace } from "./client";
@@ -351,7 +351,7 @@ export function Editor({
             <h2>
               {
                 {
-                  response: "Réponse immédiate",
+                  response: "Réponse HTTP",
                   settings: "Paramètres de la simulation",
                   variables: "Variables typées",
                   hook: "Webhook différé",
@@ -401,6 +401,26 @@ export function Editor({
                   </select>
                 </Field>
               </div>
+              <Field
+                label="Délai de réponse HTTP (secondes)"
+                error={err("responseDelaySeconds")}
+              >
+                <input
+                  type="number"
+                  min={0}
+                  max={maxResponseDelaySeconds}
+                  step={1}
+                  value={d.responseDelaySeconds ?? 0}
+                  onChange={(e) =>
+                    edit("responseDelaySeconds", Number(e.target.value))
+                  }
+                />
+              </Field>
+              <small className={s.muted}>
+                Pour simuler un timeout, choisissez une durée supérieure au
+                délai d’attente de votre application. Avec 0, la réponse est
+                immédiate.
+              </small>
             </fieldset>
             <EditorPayload
               {...payloadProps}
@@ -611,6 +631,7 @@ export function Editor({
               "delay",
               "destination",
               "status",
+              "responseDelaySeconds",
               "noBody",
             ].includes(issue.field) && (
               <p className="error" role="alert">

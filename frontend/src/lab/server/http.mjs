@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from "node:timers/promises";
 import { ZodError } from "zod";
 import { FieldError } from "../model.ts";
 import { database, Problem, limit } from "./db.mjs";
@@ -83,11 +84,24 @@ function errorResponse(error) {
     { "x-lab-error": "1" },
   );
 }
+// Wait before writing any headers, after SQLite has committed the trace and scheduled the webhook.
+async function triggerAndWait(db, signal, input) {
+  const result = trigger(db, input);
+  if (result.responseDelaySeconds > 0) {
+    try {
+      await sleep(result.responseDelaySeconds * 1000, undefined, { signal });
+    } catch (error) {
+      // A disconnected client no longer needs the timer. The recorded execution is still valid.
+      if (error.name !== "AbortError") throw error;
+    }
+  }
+  return result;
+}
 export async function simulate(req, id, path, db) {
   try {
     db ??= database();
     const raw = await readBody(req);
-    const r = trigger(db, {
+    const r = await triggerAndWait(db, req.signal, {
       id,
       path,
       method: req.method,
@@ -243,7 +257,7 @@ export async function administration(req, parts, db) {
       }
       if (action === "run") {
         const { config } = activeConfig(db, id);
-        const r = trigger(db, {
+        const r = await triggerAndWait(db, req.signal, {
           id,
           user,
           path: config.path,

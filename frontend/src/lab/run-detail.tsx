@@ -33,6 +33,9 @@ function Timeline({
           <strong>Réponse préparée</strong>
           <small>
             HTTP {t.status} · Version {e.version}
+            {!!t.responseDelaySeconds && (
+              <> · Délai de réponse configuré : {t.responseDelaySeconds} s</>
+            )}
           </small>
         </li>
         {j && (

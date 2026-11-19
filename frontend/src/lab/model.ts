@@ -2,6 +2,7 @@
 import { renderXml } from "./xml.ts";
 import { z } from "zod";
 
+export const maxResponseDelaySeconds = 300;
 export const methods = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
 export const jsonTypes = [
   "uuid",
@@ -32,6 +33,7 @@ export const draftSchema = z.object({
   method: z.enum(methods),
   path: z.string().max(512),
   status: z.number(),
+  responseDelaySeconds: z.number().default(0),
   contentType: z.enum([
     "application/json",
     "application/problem+json",
@@ -75,6 +77,7 @@ export const blank = (project: string): Draft => ({
   method: "POST",
   path: "/resources",
   status: 200,
+  responseDelaySeconds: 0,
   contentType: "application/json",
   noBody: false,
   body: '{\n  "ok": true\n}',
@@ -261,6 +264,17 @@ export function compile(d: Draft, input: Record<string, unknown> = {}) {
     fail("path", "Utilisez un chemin exact commençant par /.");
   if (!Number.isInteger(d.status) || d.status < 200 || d.status > 599)
     fail("status", "Choisissez un statut final de 200 à 599.");
+  // Previously published versions omit the delay and continue to respond immediately.
+  const responseDelaySeconds = d.responseDelaySeconds ?? 0;
+  if (
+    !Number.isInteger(responseDelaySeconds) ||
+    responseDelaySeconds < 0 ||
+    responseDelaySeconds > maxResponseDelaySeconds
+  )
+    fail(
+      "responseDelaySeconds",
+      `Indiquez un nombre entier de 0 à ${maxResponseDelaySeconds} secondes.`,
+    );
   if ([204, 205, 304].includes(d.status) && !d.noBody)
     fail("noBody", "Ce statut exige une réponse sans corps.");
   const variables: Record<string, Value> = Object.create(null);
@@ -288,12 +302,15 @@ export function compile(d: Draft, input: Record<string, unknown> = {}) {
   )
     fail("delay", "Le délai doit être compris entre 0 et 86 400 secondes.");
   if (d.webhook && !d.destination)
-    fail("destination", "Saisissez une URL de réception ou choisissez une destination enregistrée.");
+    fail(
+      "destination",
+      "Saisissez une URL de réception ou choisissez une destination enregistrée.",
+    );
   const hook = d.webhook
     ? {
         body: render(d.hookBody, variables, "hookBody"),
         headers: headerMap(d.hookHeaders, "hookHeaders"),
       }
     : null;
-  return { variables, body, headers, hook };
+  return { variables, body, headers, hook, responseDelaySeconds };
 }

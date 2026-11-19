@@ -71,6 +71,7 @@ export async function exerciseCollaboration(browser, origin) {
     await owner.getByRole("link", { name: "Nouvelle simulation" }).click();
     await owner.getByLabel("Nom de la simulation").fill("Contrat XML");
     await owner.getByRole("tab", { name: "Réponse", exact: true }).click();
+    await owner.getByLabel("Délai de réponse HTTP (secondes)").fill("1");
     await owner.getByLabel("Type de contenu").selectOption("application/xml");
     await owner
       .getByLabel("Corps de la réponse", { exact: true })
@@ -110,10 +111,26 @@ export async function exerciseCollaboration(browser, origin) {
     const simUrl = owner.url();
     await owner.getByText("Détails de l’appel test", { exact: true }).click();
     const endpoint = await owner.locator("details code.wrap").innerText();
+    // A short client deadline must expire before headers; a longer one receives the configured XML.
+    await expect(
+      fetch(endpoint, {
+        method: "POST",
+        headers: { "x-lab-key": key },
+        signal: AbortSignal.timeout(250),
+      }),
+    ).rejects.toMatchObject({ name: "TimeoutError" });
+    const started = performance.now();
     const r = await owner.request.post(endpoint, {
       headers: { "x-lab-key": key },
     });
+    expect(performance.now() - started).toBeGreaterThanOrEqual(990);
     expect(r.status()).toBe(200);
+    const tracePage = await owner.context().newPage();
+    await tracePage.goto(origin + "/#/runs/" + r.headers()["x-correlation-id"]);
+    await expect(
+      tracePage.getByText(/Délai de réponse configuré.*1 s/),
+    ).toBeVisible();
+    await tracePage.close();
     expect(r.headers()["x-recette"]).toBe("xml");
     expect(r.headers()["content-type"]).toBe("application/xml");
     expect(await r.text()).toBe('<document statut="pret"/>');

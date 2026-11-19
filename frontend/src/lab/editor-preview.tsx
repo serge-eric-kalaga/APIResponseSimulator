@@ -79,6 +79,11 @@ export function EditorPreview({
               <b>{version.config.method}</b>
               <code>{version.config.path}</code>
             </div>
+            {!!version.config.responseDelaySeconds && (
+              <p className={s.muted}>
+                Délai de réponse HTTP de {version.config.responseDelaySeconds} s
+              </p>
+            )}
             {!!item?.writable && !item.archived && (
               <>
                 <div className={s.buttons}>

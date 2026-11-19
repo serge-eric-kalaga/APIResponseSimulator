@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { blank, compile, newVariable } from "../../src/lab/model.ts";
+import {
+  blank,
+  compile,
+  draftSchema,
+  newVariable,
+} from "../../src/lab/model.ts";
 const base = () => ({ ...blank("QA"), name: "Validation" });
 test("typed snapshot shared across response, interpolations and webhook", () => {
   const d = {
@@ -116,5 +121,22 @@ test("inclusive integer bounds, decimal/null/UUID constants and escaped text", (
   assert.deepEqual(
     compile({ ...d, contentType: "text/plain", body: "valeur {{limit}}" }).body,
     "valeur -2",
+  );
+});
+
+test("response delay is bounded, versioned independently of the webhook and defaults to zero for old simulations", () => {
+  const old = base();
+  delete old.responseDelaySeconds;
+  assert.equal(draftSchema.parse(old).responseDelaySeconds, 0);
+  assert.equal(compile(old).responseDelaySeconds, 0);
+  for (const value of [-1, 1.5, 301])
+    assert.throws(
+      () => compile({ ...base(), responseDelaySeconds: value }),
+      (e) => e.field === "responseDelaySeconds",
+    );
+  assert.equal(
+    compile({ ...base(), responseDelaySeconds: 300, delay: 10 })
+      .responseDelaySeconds,
+    300,
   );
 });

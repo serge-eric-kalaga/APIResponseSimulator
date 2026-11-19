@@ -188,6 +188,7 @@ export function trigger(
       method,
       path,
       status: d.status,
+      responseDelaySeconds: result.responseDelaySeconds,
       variables: filter.evidence(result.variables),
       hasIncomingBody: raw.length > 0,
       hasResponseBody: result.body !== null && result.body !== "",
@@ -222,6 +223,7 @@ export function trigger(
       );
     return {
       status: d.status,
+      responseDelaySeconds: result.responseDelaySeconds,
       body: result.body,
       headers: responseHeaders,
       id: run,

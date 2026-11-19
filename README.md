@@ -40,6 +40,12 @@ curl -i -X POST "$SIMULATION_URL" -H "X-Lab-Key: $RELAIS_TEST_KEY"
 
 Le résultat attendu est un statut `202`, le corps `{"etat":"pending"}` et un en-tête `X-Correlation-Id` qui identifie l’exécution. Le client peut également transmettre le SHA du code testé dans l’en-tête `X-Tested-Sha`.
 
+## Tester un timeout côté client
+
+Dans **Réponse → Délai de réponse HTTP (secondes)**, saisissez par exemple **10**, puis publiez la simulation. Réglez le délai d’attente de votre application à **3 secondes** et appelez l’URL publiée. Votre client expirera avant de recevoir les en-têtes. Avec un délai d’attente supérieur à 10 secondes, il recevra le statut et le corps configurés.
+
+Pour reproduire le test en ligne de commande, ajoutez `--max-time 3` au cURL copié depuis l’éditeur. Le code de sortie attendu est `28`. Le délai de réponse se règle de 0 à 300 secondes. La trace conserve le délai configuré, même si le client abandonne. Un webhook activé reste planifié à partir de la réception de la requête.
+
 ## Configurer un scénario
 
 | Onglet de l’éditeur | Ce que vous configurez |

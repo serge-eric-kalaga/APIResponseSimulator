@@ -36,6 +36,7 @@ export type Trace = {
   method: string;
   path: string;
   status: number;
+  responseDelaySeconds?: number;
   expected: string;
   sha: string;
   variables: unknown;
